@@ -56,7 +56,7 @@ struct xfrm_user_sec_ctx;
  */
 
 /*@ axiomatic TaskStruct {
-    predicate valid_task(struct task_struct *t) =
+    predicate valid_task_struct(struct task_struct *t) =
        \valid(t);
     }
  */
