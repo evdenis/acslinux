@@ -1,105 +1,18 @@
-#include <linux/dcache.h>
-#include <linux/fs.h>
+#include "acslinux.h"
 
-struct audit_context;
-struct audit_krule;
-struct bpf_map;
-struct bpf_prog_aux;
-struct bpf_prog;
-struct cred;
-struct dentry;
-struct file;
-struct flowi;
-struct fown_struct;
-struct iattr;
-struct inode;
-struct kern_ipc_perm;
-struct key;
-struct linux_binprm;
-struct mm_struct;
-struct msghdr;
-struct msg_msg;
-struct path;
-struct qstr;
-struct request_sock;
-struct rlimit;
-struct sctp_endpoint;
-struct security_mnt_opts;
-struct sembuf;
-struct seq_file;
-struct siginfo;
-struct sk_buff;
-struct sockaddr_in6;
-struct sockaddr_in;
-struct sockaddr;
-struct socket;
-struct sock;
-struct super_block;
-struct task_struct;
-struct timespec64;
-struct timezone;
-struct user_namespace;
-struct vfsmount;
-struct vm_area_struct;
-struct xfrm_policy;
-struct xfrm_sec_ctx;
-struct xfrm_state;
-struct xfrm_user_sec_ctx;
-
-/*@ axiomatic Cred {
-    predicate valid_cred(struct cred *c) =
-       \valid(c);
-    }
- */
-
-/*@ axiomatic TaskStruct {
-    predicate valid_task(struct task_struct *t) =
-       \valid(t);
-    }
- */
-
-/*@ axiomatic FS {
- 
-    predicate valid_super_block(struct super_block *sb) =
-          \valid(sb)
-       && valid_dentry(sb->s_root)
-       && IS_ROOT(sb->s_root);
-
-    predicate valid_inode(struct inode *i) =
-          \valid(i)
-       && valid_super_block(i->i_sb);
-
-    predicate valid_dentry(struct dentry *d) =
-          \valid(d)
-       && \valid(d->d_hash)
-       && \valid(d->d_parent)
-       && (!IS_ROOT(d) ==> valid_dentry(d->d_parent))
-       && (valid_inode(d->d_inode) || d->d_inode == \null)
-       && (valid_super_block(d->d_sb));
-
-    predicate valid_file(struct file *f) =
-          \valid(f)
-       && (\valid(f->f_inode) || f->f_inode == \null)
-       && valid_cred(f->f_cred);
-
-    }
- */
-
-typedef struct seclabel {
-} seclabel_t;
 
 /** @binder_set_context_mgr:
  *	Check whether @mgr is allowed to be the binder context manager.
  *	@mgr contains the task_struct for the task being registered.
  *	Return 0 if permission is granted.
  */
-
-/*@ requires valid_task(mgr);
+/*@ requires valid_task_struct(mgr);
  */
 static int acslinux_binder_set_context_mgr(struct task_struct *mgr)
 {
 	return 0;
 }
+
 
 /** @binder_transaction:
  *	Check whether @from is allowed to invoke a binder transaction call
@@ -107,9 +20,8 @@ static int acslinux_binder_set_context_mgr(struct task_struct *mgr)
  *	@from contains the task_struct for the sending task.
  *	@to contains the task_struct for the receiving task.
  */
-
-/*@ requires valid_task(from);
-    requires valid_task(to);
+/*@ requires valid_task_struct(from);
+    requires valid_task_struct(to);
  */
 static int acslinux_binder_transaction(struct task_struct *from,
 					struct task_struct *to)
@@ -117,14 +29,14 @@ static int acslinux_binder_transaction(struct task_struct *from,
 	return 0;
 }
 
+
 /** @binder_transfer_binder:
  *	Check whether @from is allowed to transfer a binder reference to @to.
  *	@from contains the task_struct for the sending task.
  *	@to contains the task_struct for the receiving task.
  */
-
-/*@ requires valid_task(from);
-    requires valid_task(to);
+/*@ requires valid_task_struct(from);
+    requires valid_task_struct(to);
  */
 static int acslinux_binder_transfer_binder(struct task_struct *from,
 					struct task_struct *to)
@@ -132,15 +44,15 @@ static int acslinux_binder_transfer_binder(struct task_struct *from,
 	return 0;
 }
 
+
 /** @binder_transfer_file:
  *	Check whether @from is allowed to transfer @file to @to.
  *	@from contains the task_struct for the sending task.
  *	@file contains the struct file being transferred.
  *	@to contains the task_struct for the receiving task.
  */
-
-/*@ requires valid_task(from);
-    requires valid_task(to);
+/*@ requires valid_task_struct(from);
+    requires valid_task_struct(to);
     requires valid_file(file);
  */
 static int acslinux_binder_transfer_file(struct task_struct *from,
@@ -149,6 +61,7 @@ static int acslinux_binder_transfer_file(struct task_struct *from,
 {
 	return 0;
 }
+
 
 /** @bprm_check_security:
  *	This hook mediates the point when a search for a binary handler will
@@ -160,10 +73,13 @@ static int acslinux_binder_transfer_file(struct task_struct *from,
  *	@bprm contains the linux_binprm structure.
  *	Return 0 if the hook is successful and permission is granted.
  */
+/*@ requires valid_linux_binprm(bprm);
+ */
 static int acslinux_bprm_check_security(struct linux_binprm *bprm)
 {
 	return 0;
 }
+
 
 /** @bprm_committed_creds:
  *	Tidy up after the installation of the new security attributes of a
@@ -173,9 +89,12 @@ static int acslinux_bprm_check_security(struct linux_binprm *bprm)
  *	changes on the process such as clearing out non-inheritable signal
  *	state.  This is called immediately after commit_creds().
  */
+/*@ requires valid_linux_binprm(bprm);
+ */
 static void acslinux_bprm_committed_creds(struct linux_binprm *bprm)
 {
 }
+
 
 /** @bprm_committing_creds:
  *	Prepare to install the new security attributes of a process being
@@ -187,9 +106,12 @@ static void acslinux_bprm_committed_creds(struct linux_binprm *bprm)
  *	granted when the attributes are changed.  This is called immediately
  *	before commit_creds().
  */
+/*@ requires valid_linux_binprm(bprm);
+ */
 static void acslinux_bprm_committing_creds(struct linux_binprm *bprm)
 {
 }
+
 
 /** @bprm_set_creds:
  *	Save security information in the bprm->security field, typically based
@@ -208,10 +130,13 @@ static void acslinux_bprm_committing_creds(struct linux_binprm *bprm)
  *	@bprm contains the linux_binprm structure.
  *	Return 0 if the hook is successful and permission is granted.
  */
+/*@ requires valid_linux_binprm(bprm);
+ */
 static int acslinux_bprm_set_creds(struct linux_binprm *bprm)
 {
 	return 0;
 }
+
 
 /** @capable:
  *	Check whether the @tsk process has the @cap capability in the indicated
@@ -222,11 +147,15 @@ static int acslinux_bprm_set_creds(struct linux_binprm *bprm)
  *	@audit contains whether to write an audit message or not
  *	Return 0 if the capability is granted for @tsk.
  */
+/*@ requires valid_cred(cred);
+    requires valid_user_namespace(ns);
+ */
 static int acslinux_capable(const struct cred *cred, struct user_namespace *ns,
 			int cap, int audit)
 {
 	return 0;
 }
+
 
 /** @capget:
  *	Get the @effective, @inheritable, and @permitted capability sets for
@@ -239,14 +168,14 @@ static int acslinux_capable(const struct cred *cred, struct user_namespace *ns,
  *	@permitted contains the permitted capability set.
  *	Return 0 if the capability sets were successfully obtained.
  */
-
-/*@ requires valid_task(target);
+/*@ requires valid_task_struct(target);
  */
 static int acslinux_capget(struct task_struct *target, kernel_cap_t *effective,
 			kernel_cap_t *inheritable, kernel_cap_t *permitted)
 {
 	return 0;
 }
+
 
 /** @capset:
  *	Set the @effective, @inheritable, and @permitted capability sets for
@@ -258,6 +187,9 @@ static int acslinux_capget(struct task_struct *target, kernel_cap_t *effective,
  *	@permitted contains the permitted capability set.
  *	Return 0 and update @new if permission is granted.
  */
+/*@ requires valid_cred(new);
+    requires valid_cred(old);
+ */
 static int acslinux_capset(struct cred *new, const struct cred *old,
 			const kernel_cap_t *effective,
 			const kernel_cap_t *inheritable,
@@ -266,33 +198,43 @@ static int acslinux_capset(struct cred *new, const struct cred *old,
 	return 0;
 }
 
+
 /** @cred_alloc_blank:
  *	@cred points to the credentials.
  *	@gfp indicates the atomicity of any memory allocations.
  *	Only allocate sufficient memory and attach to @cred such that
  *	cred_transfer() will not get ENOMEM.
  */
+/*@ requires valid_cred(cred);
+ */
 static int acslinux_cred_alloc_blank(struct cred *cred, gfp_t gfp)
 {
 	return 0;
 }
 
+
 /** @cred_free:
  *	@cred points to the credentials.
  *	Deallocate and clear the cred->security field in a set of credentials.
  */
+/*@ requires valid_cred(cred);
+ */
 static void acslinux_cred_free(struct cred *cred)
 {
 }
+
 
 /** @cred_getsecid:
  *	Retrieve the security identifier of the cred structure @c
  *	@c contains the credentials, secid will be placed into @secid.
  *	In case of failure, @secid will be set to zero.
  */
+/*@ requires valid_cred(c);
+ */
 static void acslinux_cred_getsecid(const struct cred *c, u32 *secid)
 {
 }
+
 
 /** @cred_prepare:
  *	@new points to the new credentials.
@@ -300,24 +242,36 @@ static void acslinux_cred_getsecid(const struct cred *c, u32 *secid)
  *	@gfp indicates the atomicity of any memory allocations.
  *	Prepare a new set of credentials by copying the data from the old set.
  */
+/*@ requires valid_cred(new);
+    requires valid_cred(old);
+ */
 static int acslinux_cred_prepare(struct cred *new, const struct cred *old,
 				gfp_t gfp)
 {
 	return 0;
 }
 
+
 /** @cred_transfer:
  *	@new points to the new credentials.
  *	@old points to the original credentials.
  *	Transfer data from original creds to new creds
  */
+/*@ requires valid_cred(new);
+    requires valid_cred(old);
+ */
 static void acslinux_cred_transfer(struct cred *new, const struct cred *old)
 {
 }
 
+
+/*@ requires valid_dentry(dentry);
+    requires valid_inode(inode);
+ */
 static void acslinux_d_instantiate(struct dentry *dentry, struct inode *inode)
 {
 }
+
 
 /** @dentry_create_files_as:
  *	Compute a context for a dentry as the inode is not yet available
@@ -330,6 +284,11 @@ static void acslinux_d_instantiate(struct dentry *dentry, struct inode *inode)
  *	@old creds which should be used for context calculation
  *	@new creds to modify
  */
+/*@ requires valid_dentry(dentry);
+    requires valid_qstr(name);
+    requires valid_cred(old);
+    requires valid_cred(new);
+ */
 static int acslinux_dentry_create_files_as(struct dentry *dentry, int mode,
 					struct qstr *name,
 					const struct cred *old,
@@ -337,6 +296,7 @@ static int acslinux_dentry_create_files_as(struct dentry *dentry, int mode,
 {
 	return 0;
 }
+
 
 /** @dentry_init_security:
  *	Compute a context for a dentry as the inode is not yet available
@@ -347,12 +307,16 @@ static int acslinux_dentry_create_files_as(struct dentry *dentry, int mode,
  *	@ctx pointer to place the pointer to the resulting context in.
  *	@ctxlen point to place the length of the resulting context.
  */
+/*@ requires valid_dentry(dentry);
+    requires valid_qstr(name);
+ */
 static int acslinux_dentry_init_security(struct dentry *dentry, int mode,
 					const struct qstr *name, void **ctx,
 					u32 *ctxlen)
 {
 	return 0;
 }
+
 
 /** @file_alloc_security:
  *	Allocate and attach a security structure to the file->f_security field.
@@ -361,10 +325,13 @@ static int acslinux_dentry_init_security(struct dentry *dentry, int mode,
  *	@file contains the file structure to secure.
  *	Return 0 if the hook is successful and permission is granted.
  */
+/*@ requires valid_file(file);
+ */
 static int acslinux_file_alloc_security(struct file *file)
 {
 	return 0;
 }
+
 
 /** @file_fcntl:
  *	Check permission before allowing the file operation specified by @cmd
@@ -377,19 +344,25 @@ static int acslinux_file_alloc_security(struct file *file)
  *	@arg contains the operational arguments.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_file(file);
+ */
 static int acslinux_file_fcntl(struct file *file, unsigned int cmd,
 				unsigned long arg)
 {
 	return 0;
 }
 
+
 /** @file_free_security:
  *	Deallocate and free any security structures stored in file->f_security.
  *	@file contains the file structure being modified.
  */
+/*@ requires valid_file(file);
+ */
 static void acslinux_file_free_security(struct file *file)
 {
 }
+
 
 /** @file_ioctl:
  *	@file contains the file structure.
@@ -401,11 +374,14 @@ static void acslinux_file_free_security(struct file *file)
  *	should never be used by the security module.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_file(file);
+ */
 static int acslinux_file_ioctl(struct file *file, unsigned int cmd,
 				unsigned long arg)
 {
 	return 0;
 }
+
 
 /** @file_lock:
  *	Check permission before performing file locking operations.
@@ -415,10 +391,13 @@ static int acslinux_file_ioctl(struct file *file, unsigned int cmd,
  *	(e.g. F_RDLCK, F_WRLCK).
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_file(file);
+ */
 static int acslinux_file_lock(struct file *file, unsigned int cmd)
 {
 	return 0;
 }
+
 
 /** @file_mprotect:
  *	Check permissions before changing memory access permissions.
@@ -427,21 +406,28 @@ static int acslinux_file_lock(struct file *file, unsigned int cmd)
  *	@prot contains the protection that will be applied by the kernel.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_vm_area_struct(vma);
+ */
 static int acslinux_file_mprotect(struct vm_area_struct *vma, unsigned long reqprot,
 				unsigned long prot)
 {
 	return 0;
 }
 
+
 /** @file_open:
  *	Save open-time permission checking state for later use upon
  *	file_permission, and recheck access if anything has changed
  *	since inode_permission.
  */
+/*@ requires valid_file(file);
+    requires valid_cred(cred);
+ */
 static int acslinux_file_open(struct file *file, const struct cred *cred)
 {
 	return 0;
 }
+
 
 /** @file_permission:
  *	Check file permissions before accessing an open file.  This hook is
@@ -461,10 +447,13 @@ static int acslinux_file_open(struct file *file, const struct cred *cred)
  *	@mask contains the requested permissions.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_file(file);
+ */
 static int acslinux_file_permission(struct file *file, int mask)
 {
 	return 0;
 }
+
 
 /** @file_receive:
  *	This hook allows security modules to control the ability of a process
@@ -472,10 +461,13 @@ static int acslinux_file_permission(struct file *file, int mask)
  *	@file contains the file structure being received.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_file(file);
+ */
 static int acslinux_file_receive(struct file *file)
 {
 	return 0;
 }
+
 
 /** @file_send_sigiotask:
  *	Check permission for the file owner @fown to send SIGIO or SIGURG to the
@@ -488,11 +480,15 @@ static int acslinux_file_receive(struct file *file)
  *	@sig is the signal that will be sent.  When 0, kernel sends SIGIO.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_task_struct(tsk);
+    requires valid_fown_struct(fown);
+ */
 static int acslinux_file_send_sigiotask(struct task_struct *tsk,
 					struct fown_struct *fown, int sig)
 {
 	return 0;
 }
+
 
 /** @file_set_fowner:
  *	Save owner security information (typically from current->security) in
@@ -500,14 +496,21 @@ static int acslinux_file_send_sigiotask(struct task_struct *tsk,
  *	@file contains the file structure to update.
  *	Return 0 on success.
  */
+/*@ requires valid_file(file);
+ */
 static void acslinux_file_set_fowner(struct file *file)
 {
 }
 
+
+/*@ requires valid_task_struct(p);
+    requires valid_str(name);
+ */
 static int acslinux_getprocattr(struct task_struct *p, char *name, char **value)
 {
 	return 0;
 }
+
 
 /** @inode_alloc_security:
  *	Allocate and attach a security structure to @inode->i_security.  The
@@ -516,10 +519,13 @@ static int acslinux_getprocattr(struct task_struct *p, char *name, char **value)
  *	@inode contains the inode structure.
  *	Return 0 if operation was successful.
  */
+/*@ requires valid_inode(inode);
+ */
 static int acslinux_inode_alloc_security(struct inode *inode)
 {
 	return 0;
 }
+
 
 /** @inode_copy_up:
  *	A file is about to be copied up from lower layer to upper layer of
@@ -531,10 +537,13 @@ static int acslinux_inode_alloc_security(struct inode *inode)
  *	@new pointer to pointer to return newly allocated creds.
  *	Returns 0 on success or a negative error code on error.
  */
+/*@ requires valid_dentry(src);
+ */
 static int acslinux_inode_copy_up(struct dentry *src, struct cred **new)
 {
 	return 0;
 }
+
 
 /** @inode_copy_up_xattr:
  *	Filter the xattrs being copied up when a unioned file is copied
@@ -545,10 +554,13 @@ static int acslinux_inode_copy_up(struct dentry *src, struct cred **new)
  *	to abort the copy up. Note that the caller is responsible for reading
  *	and writing the xattrs as this hook is merely a filter.
  */
+/*@ requires valid_str(name);
+ */
 static int acslinux_inode_copy_up_xattr(const char *name)
 {
 	return 0;
 }
+
 
 /** @inode_create:
  *	Check permission to create a regular file.
@@ -557,11 +569,15 @@ static int acslinux_inode_copy_up_xattr(const char *name)
  *	@mode contains the file mode of the file to be created.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_inode(dir);
+    requires valid_dentry(dentry);
+ */
 static int acslinux_inode_create(struct inode *dir, struct dentry *dentry,
 				umode_t mode)
 {
 	return 0;
 }
+
 
 /** @inode_follow_link:
  *	Check permission to follow a symbolic link when looking up a pathname.
@@ -570,39 +586,52 @@ static int acslinux_inode_create(struct inode *dir, struct dentry *dentry,
  *	@rcu indicates whether we are in RCU-walk mode.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_dentry(dentry);
+    requires valid_inode(inode);
+ */
 static int acslinux_inode_follow_link(struct dentry *dentry, struct inode *inode,
 				 bool rcu)
 {
 	return 0;
 }
 
+
 /** @inode_free_security:
  *	@inode contains the inode structure.
  *	Deallocate the inode security structure and set @inode->i_security to
  *	NULL.
  */
+/*@ requires valid_inode(inode);
+ */
 static void acslinux_inode_free_security(struct inode *inode)
 {
 }
+
 
 /** @inode_getattr:
  *	Check permission before obtaining file attributes.
  *	@path contains the path structure for the file.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_path(path);
+ */
 static int acslinux_inode_getattr(const struct path *path)
 {
 	return 0;
 }
 
+
 /** @inode_getsecctx:
  *	On success, returns 0 and fills out @ctx and @ctxlen with the security
  *	context for the given @inode.
+ */
+/*@ requires valid_inode(inode);
  */
 static int acslinux_inode_getsecctx(struct inode *inode, void **ctx, u32 *ctxlen)
 {
 	return 0;
 }
+
 
 /** @inode_getsecid:
  *	Get the secid associated with the node.
@@ -610,9 +639,12 @@ static int acslinux_inode_getsecctx(struct inode *inode, void **ctx, u32 *ctxlen
  *	@secid contains a pointer to the location where result will be saved.
  *	In case of failure, @secid will be set to zero.
  */
+/*@ requires valid_inode(inode);
+ */
 static void acslinux_inode_getsecid(struct inode *inode, u32 *secid)
 {
 }
+
 
 /** @inode_getsecurity:
  *	Retrieve a copy of the extended attribute representation of the
@@ -622,21 +654,29 @@ static void acslinux_inode_getsecid(struct inode *inode, u32 *secid)
  *	value via the buffer or just the value length Return size of buffer on
  *	success.
  */
+/*@ requires valid_inode(inode);
+    requires valid_str(name);
+ */
 static int acslinux_inode_getsecurity(struct inode *inode, const char *name,
 					void **buffer, bool alloc)
 {
 	return 0;
 }
 
+
 /** @inode_getxattr:
  *	Check permission before obtaining the extended attributes
  *	identified by @name for @dentry.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_dentry(dentry);
+    requires valid_str(name);
+ */
 static int acslinux_inode_getxattr(struct dentry *dentry, const char *name)
 {
 	return 0;
 }
+
 
 /** @inode_init_security:
  *	Obtain the security attribute name suffix and value to set on a newly
@@ -659,6 +699,10 @@ static int acslinux_inode_getxattr(struct dentry *dentry, const char *name)
  *	-EOPNOTSUPP if no security attribute is needed, or
  *	-ENOMEM on memory allocation failure.
  */
+/*@ requires valid_inode(inode);
+    requires valid_inode(dir);
+    requires valid_qstr(qstr);
+ */
 static int acslinux_inode_init_security(struct inode *inode, struct inode *dir,
 					const struct qstr *qstr,
 					const char **name, void **value,
@@ -667,13 +711,17 @@ static int acslinux_inode_init_security(struct inode *inode, struct inode *dir,
 	return 0;
 }
 
+
 /** @inode_invalidate_secctx:
  *	Notify the security module that it must revalidate the security context
  *	of an inode.
  */
+/*@ requires valid_inode(inode);
+ */
 static void acslinux_inode_invalidate_secctx(struct inode *inode)
 {
 }
+
 
 /** @inode_killpriv:
  *	The setuid bit is being removed.  Remove similar security labels.
@@ -682,10 +730,13 @@ static void acslinux_inode_invalidate_secctx(struct inode *inode)
  *	Return 0 on success.  If error is returned, then the operation
  *	causing setuid bit removal is failed.
  */
+/*@ requires valid_dentry(dentry);
+ */
 static int acslinux_inode_killpriv(struct dentry *dentry)
 {
 	return 0;
 }
+
 
 /** @inode_link:
  *	Check permission before creating a new hard link to a file.
@@ -696,11 +747,16 @@ static int acslinux_inode_killpriv(struct dentry *dentry)
  *	@new_dentry contains the dentry structure for the new link.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_dentry(old_dentry);
+    requires valid_inode(dir);
+    requires valid_dentry(new_dentry);
+ */
 static int acslinux_inode_link(struct dentry *old_dentry, struct inode *dir,
 				struct dentry *new_dentry)
 {
 	return 0;
 }
+
 
 /** @inode_listsecurity:
  *	Copy the extended attribute names for the security labels
@@ -709,21 +765,28 @@ static int acslinux_inode_link(struct dentry *old_dentry, struct inode *dir,
  *	the size of the buffer required.
  *	Returns number of bytes used/required on success.
  */
+/*@ requires valid_inode(inode);
+    requires valid_str(buffer);
+ */
 static int acslinux_inode_listsecurity(struct inode *inode, char *buffer,
 					size_t buffer_size)
 {
 	return 0;
 }
 
+
 /** @inode_listxattr:
  *	Check permission before obtaining the list of extended attribute
  *	names for @dentry.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_dentry(dentry);
+ */
 static int acslinux_inode_listxattr(struct dentry *dentry)
 {
 	return 0;
 }
+
 
 /** @inode_mkdir:
  *	Check permissions to create a new directory in the existing directory
@@ -734,11 +797,15 @@ static int acslinux_inode_listxattr(struct dentry *dentry)
  *	@mode contains the mode of new directory.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_inode(dir);
+    requires valid_dentry(dentry);
+ */
 static int acslinux_inode_mkdir(struct inode *dir, struct dentry *dentry,
 				umode_t mode)
 {
 	return 0;
 }
+
 
 /** @inode_mknod:
  *	Check permissions when creating a special file (or a socket or a fifo
@@ -751,11 +818,15 @@ static int acslinux_inode_mkdir(struct inode *dir, struct dentry *dentry,
  *	@dev contains the device number.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_inode(dir);
+    requires valid_dentry(dentry);
+ */
 static int acslinux_inode_mknod(struct inode *dir, struct dentry *dentry,
 				umode_t mode, dev_t dev)
 {
 	return 0;
 }
+
 
 /** @inode_need_killpriv:
  *	Called when an inode has been changed.
@@ -764,10 +835,13 @@ static int acslinux_inode_mknod(struct inode *dir, struct dentry *dentry,
  *	Return 0 if inode_killpriv does not need to be called.
  *	Return >0 if inode_killpriv does need to be called.
  */
+/*@ requires valid_dentry(dentry);
+ */
 static int acslinux_inode_need_killpriv(struct dentry *dentry)
 {
 	return 0;
 }
+
 
 /** @inode_notifysecctx:
  *	Notify the security module of what the security context of an inode
@@ -777,10 +851,13 @@ static int acslinux_inode_need_killpriv(struct dentry *dentry)
  *	value provided by the server for the file when the server returned the
  *	file's attributes to the client.
  */
+/*@ requires valid_inode(inode);
+ */
 static int acslinux_inode_notifysecctx(struct inode *inode, void *ctx, u32 ctxlen)
 {
 	return 0;
 }
+
 
 /** @inode_permission:
  *	Check permission before accessing an inode.  This hook is called by the
@@ -793,14 +870,20 @@ static int acslinux_inode_notifysecctx(struct inode *inode, void *ctx, u32 ctxle
  *	@mask contains the permission mask.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_inode(inode);
+ */
 static int acslinux_inode_permission(struct inode *inode, int mask)
 {
 	return 0;
 }
 
+
 /** @inode_post_setxattr:
  *	Update inode security field after successful setxattr operation.
  *	@value identified by @name for @dentry.
+ */
+/*@ requires valid_dentry(dentry);
+    requires valid_str(name);
  */
 static void acslinux_inode_post_setxattr(struct dentry *dentry, const char *name,
 					const void *value, size_t size,
@@ -808,25 +891,33 @@ static void acslinux_inode_post_setxattr(struct dentry *dentry, const char *name
 {
 }
 
+
 /** @inode_readlink:
  *	Check the permission to read the symbolic link.
  *	@dentry contains the dentry structure for the file link.
  *	Return 0 if permission is granted.
+ */
+/*@ requires valid_dentry(dentry);
  */
 static int acslinux_inode_readlink(struct dentry *dentry)
 {
 	return 0;
 }
 
+
 /** @inode_removexattr:
  *	Check permission before removing the extended attribute
  *	identified by @name for @dentry.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_dentry(dentry);
+    requires valid_str(name);
+ */
 static int acslinux_inode_removexattr(struct dentry *dentry, const char *name)
 {
 	return 0;
 }
+
 
 /** @inode_rename:
  *	Check for permission to rename a file or directory.
@@ -836,12 +927,18 @@ static int acslinux_inode_removexattr(struct dentry *dentry, const char *name)
  *	@new_dentry contains the dentry structure of the new link.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_inode(old_dir);
+    requires valid_dentry(old_dentry);
+    requires valid_inode(new_dir);
+    requires valid_dentry(new_dentry);
+ */
 static int acslinux_inode_rename(struct inode *old_dir, struct dentry *old_dentry,
 				struct inode *new_dir,
 				struct dentry *new_dentry)
 {
 	return 0;
 }
+
 
 /** @inode_rmdir:
  *	Check the permission to remove a directory.
@@ -850,10 +947,14 @@ static int acslinux_inode_rename(struct inode *old_dir, struct dentry *old_dentr
  *	@dentry contains the dentry structure of directory to be removed.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_inode(dir);
+    requires valid_dentry(dentry);
+ */
 static int acslinux_inode_rmdir(struct inode *dir, struct dentry *dentry)
 {
 	return 0;
 }
+
 
 /** @inode_setattr:
  *	Check permission before setting file attributes.  Note that the kernel
@@ -864,10 +965,14 @@ static int acslinux_inode_rmdir(struct inode *dir, struct dentry *dentry)
  *	@attr is the iattr structure containing the new file attributes.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_dentry(dentry);
+    requires valid_iattr(attr);
+ */
 static int acslinux_inode_setattr(struct dentry *dentry, struct iattr *attr)
 {
 	return 0;
 }
+
 
 /** @inode_setsecctx:
  *	Change the security context of an inode.  Updates the
@@ -878,10 +983,13 @@ static int acslinux_inode_setattr(struct dentry *dentry, struct iattr *attr)
  *	backing filesystem to a value provided by the client on a SETATTR
  *	operation.
  */
+/*@ requires valid_dentry(dentry);
+ */
 static int acslinux_inode_setsecctx(struct dentry *dentry, void *ctx, u32 ctxlen)
 {
 	return 0;
 }
+
 
 /** @inode_setsecurity:
  *	Set the security label associated with @name for @inode from the
@@ -891,6 +999,9 @@ static int acslinux_inode_setsecctx(struct dentry *dentry, void *ctx, u32 ctxlen
  *	security. prefix has been removed.
  *	Return 0 on success.
  */
+/*@ requires valid_inode(inode);
+    requires valid_str(name);
+ */
 static int acslinux_inode_setsecurity(struct inode *inode, const char *name,
 					const void *value, size_t size,
 					int flags)
@@ -898,16 +1009,21 @@ static int acslinux_inode_setsecurity(struct inode *inode, const char *name,
 	return 0;
 }
 
+
 /** @inode_setxattr:
  *	Check permission before setting the extended attributes
  *	@value identified by @name for @dentry.
  *	Return 0 if permission is granted.
+ */
+/*@ requires valid_dentry(dentry);
+    requires valid_str(name);
  */
 static int acslinux_inode_setxattr(struct dentry *dentry, const char *name,
 				const void *value, size_t size, int flags)
 {
 	return 0;
 }
+
 
 /** @inode_symlink:
  *	Check the permission to create a symbolic link to a file.
@@ -917,11 +1033,16 @@ static int acslinux_inode_setxattr(struct dentry *dentry, const char *name,
  *	@old_name contains the pathname of file.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_inode(dir);
+    requires valid_dentry(dentry);
+    requires valid_str(old_name);
+ */
 static int acslinux_inode_symlink(struct inode *dir, struct dentry *dentry,
 				const char *old_name)
 {
 	return 0;
 }
+
 
 /** @inode_unlink:
  *	Check the permission to remove a hard link to a file.
@@ -929,10 +1050,14 @@ static int acslinux_inode_symlink(struct inode *dir, struct dentry *dentry,
  *	@dentry contains the dentry structure for file to be unlinked.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_inode(dir);
+    requires valid_dentry(dentry);
+ */
 static int acslinux_inode_unlink(struct inode *dir, struct dentry *dentry)
 {
 	return 0;
 }
+
 
 /** @ipc_getsecid:
  *	Get the secid associated with the ipc object.
@@ -940,9 +1065,12 @@ static int acslinux_inode_unlink(struct inode *dir, struct dentry *dentry)
  *	@secid contains a pointer to the location where result will be saved.
  *	In case of failure, @secid will be set to zero.
  */
+/*@ requires valid_kern_ipc_perm(ipcp);
+ */
 static void acslinux_ipc_getsecid(struct kern_ipc_perm *ipcp, u32 *secid)
 {
 }
+
 
 /** @ipc_permission:
  *	Check permissions for access to IPC
@@ -950,10 +1078,13 @@ static void acslinux_ipc_getsecid(struct kern_ipc_perm *ipcp, u32 *secid)
  *	@flag contains the desired (requested) permission set
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(ipcp);
+ */
 static int acslinux_ipc_permission(struct kern_ipc_perm *ipcp, short flag)
 {
 	return 0;
 }
+
 
 /** @ismaclabel:
  *	Check if the extended attribute specified by @name
@@ -962,10 +1093,13 @@ static int acslinux_ipc_permission(struct kern_ipc_perm *ipcp, short flag)
  *	@name full extended attribute name to check against
  *	LSM as a MAC label.
  */
+/*@ requires valid_str(name);
+ */
 static int acslinux_ismaclabel(const char *name)
 {
 	return 0;
 }
+
 
 /** @kernel_act_as:
  *	Set the credentials for a kernel service to act as (subjective context).
@@ -974,10 +1108,13 @@ static int acslinux_ismaclabel(const char *name)
  *	The current task must be the one that nominated @secid.
  *	Return 0 if successful.
  */
+/*@ requires valid_cred(new);
+ */
 static int acslinux_kernel_act_as(struct cred *new, u32 secid)
 {
 	return 0;
 }
+
 
 /** @kernel_create_files_as:
  *	Set the file creation context in a set of credentials to be the same as
@@ -987,10 +1124,14 @@ static int acslinux_kernel_act_as(struct cred *new, u32 secid)
  *	The current task must be the one that nominated @inode.
  *	Return 0 if successful.
  */
+/*@ requires valid_cred(new);
+    requires valid_inode(inode);
+ */
 static int acslinux_kernel_create_files_as(struct cred *new, struct inode *inode)
 {
 	return 0;
 }
+
 
 /** @kernel_module_request:
  *	Ability to trigger the kernel to automatically upcall to userspace for
@@ -998,10 +1139,13 @@ static int acslinux_kernel_create_files_as(struct cred *new, struct inode *inode
  *	@kmod_name name of the module requested by the kernel
  *	Return 0 if successful.
  */
+/*@ requires valid_str(kmod_name);
+ */
 static int acslinux_kernel_module_request(char *kmod_name)
 {
 	return 0;
 }
+
 
 /** @kernel_post_read_file:
  *	Read a file specified by userspace.
@@ -1012,11 +1156,15 @@ static int acslinux_kernel_module_request(char *kmod_name)
  *	@id kernel read file identifier
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_file(file);
+    requires valid_str(buf);
+ */
 static int acslinux_kernel_post_read_file(struct file *file, char *buf, loff_t size,
 				     enum kernel_read_file_id id)
 {
 	return 0;
 }
+
 
 /** @kernel_read_file:
  *	Read a file specified by userspace.
@@ -1025,21 +1173,29 @@ static int acslinux_kernel_post_read_file(struct file *file, char *buf, loff_t s
  *	@id kernel read file identifier
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_file(file);
+ */
 static int acslinux_kernel_read_file(struct file *file, enum kernel_read_file_id id)
 {
 	return 0;
 }
+
+
 
 static int acslinux_mmap_addr(unsigned long addr)
 {
 	return 0;
 }
 
+
+/*@ requires valid_file(file);
+ */
 static int acslinux_mmap_file(struct file *file, unsigned long reqprot,
 				unsigned long prot, unsigned long flags)
 {
 	return 0;
 }
+
 
 /** @msg_msg_alloc_security:
  *	Allocate and attach a security structure to the msg->security field.
@@ -1048,18 +1204,24 @@ static int acslinux_mmap_file(struct file *file, unsigned long reqprot,
  *	@msg contains the message structure to be modified.
  *	Return 0 if operation was successful and permission is granted.
  */
+/*@ requires valid_msg_msg(msg);
+ */
 static int acslinux_msg_msg_alloc_security(struct msg_msg *msg)
 {
 	return 0;
 }
 
+
 /** @msg_msg_free_security:
  *	Deallocate the security structure for this message.
  *	@msg contains the message structure to be modified.
  */
+/*@ requires valid_msg_msg(msg);
+ */
 static void acslinux_msg_msg_free_security(struct msg_msg *msg)
 {
 }
+
 
 /** @msg_queue_alloc_security:
  *	Allocate and attach a security structure to the
@@ -1068,10 +1230,13 @@ static void acslinux_msg_msg_free_security(struct msg_msg *msg)
  *	@msq contains the message queue structure to be modified.
  *	Return 0 if operation was successful and permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(msq);
+ */
 static int acslinux_msg_queue_alloc_security(struct kern_ipc_perm *msq)
 {
 	return 0;
 }
+
 
 /** @msg_queue_associate:
  *	Check permission when a message queue is requested through the
@@ -1082,18 +1247,24 @@ static int acslinux_msg_queue_alloc_security(struct kern_ipc_perm *msq)
  *	@msqflg contains the operation control flags.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(msq);
+ */
 static int acslinux_msg_queue_associate(struct kern_ipc_perm *msq, int msqflg)
 {
 	return 0;
 }
 
+
 /** @msg_queue_free_security:
  *	Deallocate security structure for this message queue.
  *	@msq contains the message queue structure to be modified.
  */
+/*@ requires valid_kern_ipc_perm(msq);
+ */
 static void acslinux_msg_queue_free_security(struct kern_ipc_perm *msq)
 {
 }
+
 
 /** @msg_queue_msgctl:
  *	Check permission when a message control operation specified by @cmd
@@ -1103,10 +1274,13 @@ static void acslinux_msg_queue_free_security(struct kern_ipc_perm *msq)
  *	@cmd contains the operation to be performed.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(msq);
+ */
 static int acslinux_msg_queue_msgctl(struct kern_ipc_perm *msq, int cmd)
 {
 	return 0;
 }
+
 
 /** @msg_queue_msgrcv:
  *	Check permission before a message, @msg, is removed from the message
@@ -1120,12 +1294,17 @@ static int acslinux_msg_queue_msgctl(struct kern_ipc_perm *msq, int cmd)
  *	@mode contains the operational flags.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(msq);
+    requires valid_msg_msg(msg);
+    requires valid_task_struct(target);
+ */
 static int acslinux_msg_queue_msgrcv(struct kern_ipc_perm *msq, struct msg_msg *msg,
 				struct task_struct *target, long type,
 				int mode)
 {
 	return 0;
 }
+
 
 /** @msg_queue_msgsnd:
  *	Check permission before a message, @msg, is enqueued on the message
@@ -1135,11 +1314,15 @@ static int acslinux_msg_queue_msgrcv(struct kern_ipc_perm *msq, struct msg_msg *
  *	@msqflg contains operational flags.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(msq);
+    requires valid_msg_msg(msg);
+ */
 static int acslinux_msg_queue_msgsnd(struct kern_ipc_perm *msq, struct msg_msg *msg,
 				int msqflg)
 {
 	return 0;
 }
+
 
 /** @netlink_send:
  *	Save security information for a netlink message so that permission
@@ -1152,10 +1335,14 @@ static int acslinux_msg_queue_msgsnd(struct kern_ipc_perm *msq, struct msg_msg *
  *	Return 0 if the information was successfully saved and message
  *	is allowed to be transmitted.
  */
+/*@ requires valid_sock(sk);
+    requires valid_sk_buff(skb);
+ */
 static int acslinux_netlink_send(struct sock *sk, struct sk_buff *skb)
 {
 	return 0;
 }
+
 
 /** @ptrace_access_check:
  *	Check permission before allowing the current process to trace the
@@ -1169,11 +1356,14 @@ static int acslinux_netlink_send(struct sock *sk, struct sk_buff *skb)
  *	@mode contains the PTRACE_MODE flags indicating the form of access.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_task_struct(child);
+ */
 static int acslinux_ptrace_access_check(struct task_struct *child,
 					unsigned int mode)
 {
 	return 0;
 }
+
 
 /** @ptrace_traceme:
  *	Check that the @parent process has sufficient permission to trace the
@@ -1182,29 +1372,41 @@ static int acslinux_ptrace_access_check(struct task_struct *child,
  *	@parent contains the task_struct structure for debugger process.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_task_struct(parent);
+ */
 static int acslinux_ptrace_traceme(struct task_struct *parent)
 {
 	return 0;
 }
 
+
+/*@ requires valid_dentry(dentry);
+ */
 static int acslinux_quota_on(struct dentry *dentry)
 {
 	return 0;
 }
 
+
+/*@ requires valid_super_block(sb);
+ */
 static int acslinux_quotactl(int cmds, int type, int id, struct super_block *sb)
 {
 	return 0;
 }
+
 
 /** @release_secctx:
  *	Release the security context.
  *	@secdata contains the security context.
  *	@seclen contains the length of the security context.
  */
+/*@ requires valid_str(secdata);
+ */
 static void acslinux_release_secctx(char *secdata, u32 seclen)
 {
 }
+
 
 /** @sb_alloc_security:
  *	Allocate and attach a security structure to the sb->s_security field.
@@ -1213,19 +1415,21 @@ static void acslinux_release_secctx(char *secdata, u32 seclen)
  *	@sb contains the super_block structure to be modified.
  *	Return 0 if operation was successful.
  */
-
-/*@ requires \valid(sb);
-    requires sb->s_security == \null;
+/*@ requires valid_super_block(sb);
  */
 static int acslinux_sb_alloc_security(struct super_block *sb)
 {
 	return 0;
 }
 
+
 /** @sb_clone_mnt_opts:
  *	Copy all security options from a given superblock to another
  *	@oldsb old superblock which contain information to clone
  *	@newsb new superblock which needs filled in
+ */
+/*@ requires valid_super_block(oldsb);
+    requires valid_super_block(newsb);
  */
 static int acslinux_sb_clone_mnt_opts(const struct super_block *oldsb,
 					struct super_block *newsb,
@@ -1234,6 +1438,7 @@ static int acslinux_sb_clone_mnt_opts(const struct super_block *oldsb,
 {
 	return 0;
 }
+
 
 /** @sb_copy_data:
  *	Allow mount option data to be copied prior to parsing by the filesystem,
@@ -1246,26 +1451,33 @@ static int acslinux_sb_clone_mnt_opts(const struct super_block *oldsb,
  *	@copy copied data which will be passed to the security module.
  *	Returns 0 if the copy was successful.
  */
+/*@ requires valid_str(orig);
+    requires valid_str(copy);
+ */
 static int acslinux_sb_copy_data(char *orig, char *copy)
 {
 	return 0;
 }
 
+
 /** @sb_free_security:
  *	Deallocate and clear the sb->s_security field.
  *	@sb contains the super_block structure to be modified.
  */
-
-/*@ requires \valid(sb);
+/*@ requires valid_super_block(sb);
  */
 static void acslinux_sb_free_security(struct super_block *sb)
 {
 }
 
+
+/*@ requires valid_super_block(sb);
+ */
 static int acslinux_sb_kern_mount(struct super_block *sb, int flags, void *data)
 {
 	return 0;
 }
+
 
 /** @sb_mount:
  *	Check permission before an object specified by @dev_name is mounted on
@@ -1281,21 +1493,30 @@ static int acslinux_sb_kern_mount(struct super_block *sb, int flags, void *data)
  *	@data contains the filesystem-specific data.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_str(dev_name);
+    requires valid_path(path);
+    requires valid_str(type);
+ */
 static int acslinux_sb_mount(const char *dev_name, const struct path *path,
 			const char *type, unsigned long flags, void *data)
 {
 	return 0;
 }
 
+
 /** @sb_parse_opts_str:
  *	Parse a string of security data filling in the opts structure
  *	@options string containing all mount options known by the LSM
  *	@opts binary data structure usable by the LSM
  */
+/*@ requires valid_str(options);
+    requires valid_security_mnt_opts(opts);
+ */
 static int acslinux_sb_parse_opts_str(char *options, struct security_mnt_opts *opts)
 {
 	return 0;
 }
+
 
 /** @sb_pivotroot:
  *	Check permission before pivoting the root filesystem.
@@ -1304,10 +1525,14 @@ static int acslinux_sb_parse_opts_str(char *options, struct security_mnt_opts *o
  *	@new_path contains the path for the new root (new_root).
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_path(old_path);
+    requires valid_path(new_path);
+ */
 static int acslinux_sb_pivotroot(const struct path *old_path, const struct path *new_path)
 {
 	return 0;
 }
+
 
 /** @sb_remount:
  *	Extracts security system specific mount options and verifies no changes
@@ -1316,15 +1541,21 @@ static int acslinux_sb_pivotroot(const struct path *old_path, const struct path 
  *	@data contains the filesystem-specific data.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_super_block(sb);
+ */
 static int acslinux_sb_remount(struct super_block *sb, void *data)
 {
 	return 0;
 }
 
+
 /** @sb_set_mnt_opts:
  *	Set the security relevant mount options used for a superblock
  *	@sb the superblock to set security mount options for
  *	@opts binary data structure containing all lsm mount data
+ */
+/*@ requires valid_super_block(sb);
+    requires valid_security_mnt_opts(opts);
  */
 static int acslinux_sb_set_mnt_opts(struct super_block *sb,
 				struct security_mnt_opts *opts,
@@ -1334,10 +1565,15 @@ static int acslinux_sb_set_mnt_opts(struct super_block *sb,
 	return 0;
 }
 
+
+/*@ requires valid_seq_file(m);
+    requires valid_super_block(sb);
+ */
 static int acslinux_sb_show_options(struct seq_file *m, struct super_block *sb)
 {
 	return 0;
 }
+
 
 /** @sb_statfs:
  *	Check permission before obtaining filesystem statistics for the @mnt
@@ -1345,10 +1581,13 @@ static int acslinux_sb_show_options(struct seq_file *m, struct super_block *sb)
  *	@dentry is a handle on the superblock for the filesystem.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_dentry(dentry);
+ */
 static int acslinux_sb_statfs(struct dentry *dentry)
 {
 	return 0;
 }
+
 
 /** @sb_umount:
  *	Check permission before the @mnt file system is unmounted.
@@ -1356,20 +1595,26 @@ static int acslinux_sb_statfs(struct dentry *dentry)
  *	@flags contains the unmount flags, e.g. MNT_FORCE.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_vfsmount(mnt);
+ */
 static int acslinux_sb_umount(struct vfsmount *mnt, int flags)
 {
 	return 0;
 }
+
 
 /** @secctx_to_secid:
  *	Convert security context to secid.
  *	@secid contains the pointer to the generated security ID.
  *	@secdata contains the security context.
  */
+/*@ requires valid_str(secdata);
+ */
 static int acslinux_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid)
 {
 	return 0;
 }
+
 
 /** @secid_to_secctx:
  *	Convert secid to security context.  If secdata is NULL the length of
@@ -1382,10 +1627,12 @@ static int acslinux_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid)
  *	context.
  *	@seclen pointer which contains the length of the data
  */
+
 static int acslinux_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
 {
 	return 0;
 }
+
 
 /** @sem_alloc_security:
  *	Allocate and attach a security structure to the sma->sem_perm.security
@@ -1394,10 +1641,13 @@ static int acslinux_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
  *	@sma contains the semaphore structure
  *	Return 0 if operation was successful and permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(sma);
+ */
 static int acslinux_sem_alloc_security(struct kern_ipc_perm *sma)
 {
 	return 0;
 }
+
 
 /** @sem_associate:
  *	Check permission when a semaphore is requested through the semget
@@ -1408,18 +1658,24 @@ static int acslinux_sem_alloc_security(struct kern_ipc_perm *sma)
  *	@semflg contains the operation control flags.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(sma);
+ */
 static int acslinux_sem_associate(struct kern_ipc_perm *sma, int semflg)
 {
 	return 0;
 }
 
+
 /** @sem_free_security:
  *	deallocate security struct for this semaphore
  *	@sma contains the semaphore structure.
  */
+/*@ requires valid_kern_ipc_perm(sma);
+ */
 static void acslinux_sem_free_security(struct kern_ipc_perm *sma)
 {
 }
+
 
 /** @sem_semctl:
  *	Check permission when a semaphore operation specified by @cmd is to be
@@ -1429,10 +1685,13 @@ static void acslinux_sem_free_security(struct kern_ipc_perm *sma)
  *	@cmd contains the operation to be performed.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(sma);
+ */
 static int acslinux_sem_semctl(struct kern_ipc_perm *sma, int cmd)
 {
 	return 0;
 }
+
 
 /** @sem_semop:
  *	Check permissions before performing operations on members of the
@@ -1444,16 +1703,23 @@ static int acslinux_sem_semctl(struct kern_ipc_perm *sma, int cmd)
  *	@alter contains the flag indicating whether changes are to be made.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(sma);
+    requires valid_sembuf(sops);
+ */
 static int acslinux_sem_semop(struct kern_ipc_perm *sma, struct sembuf *sops,
 				unsigned nsops, int alter)
 {
 	return 0;
 }
 
+
+/*@ requires valid_str(name);
+ */
 static int acslinux_setprocattr(const char *name, void *value, size_t size)
 {
 	return 0;
 }
+
 
 /** @settime:
  *	Check permission to change the system time.
@@ -1463,10 +1729,14 @@ static int acslinux_setprocattr(const char *name, void *value, size_t size)
  *	@tz contains new timezone
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_timespec64(ts);
+    requires valid_timezone(tz);
+ */
 static int acslinux_settime(const struct timespec64 *ts, const struct timezone *tz)
 {
 	return 0;
 }
+
 
 /** @shm_alloc_security:
  *	Allocate and attach a security structure to the shp->shm_perm.security
@@ -1475,10 +1745,13 @@ static int acslinux_settime(const struct timespec64 *ts, const struct timezone *
  *	@shp contains the shared memory structure to be modified.
  *	Return 0 if operation was successful and permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(shp);
+ */
 static int acslinux_shm_alloc_security(struct kern_ipc_perm *shp)
 {
 	return 0;
 }
+
 
 /** @shm_associate:
  *	Check permission when a shared memory region is requested through the
@@ -1489,18 +1762,24 @@ static int acslinux_shm_alloc_security(struct kern_ipc_perm *shp)
  *	@shmflg contains the operation control flags.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(shp);
+ */
 static int acslinux_shm_associate(struct kern_ipc_perm *shp, int shmflg)
 {
 	return 0;
 }
 
+
 /** @shm_free_security:
  *	Deallocate the security struct for this memory segment.
  *	@shp contains the shared memory structure to be modified.
  */
+/*@ requires valid_kern_ipc_perm(shp);
+ */
 static void acslinux_shm_free_security(struct kern_ipc_perm *shp)
 {
 }
+
 
 /** @shm_shmat:
  *	Check permissions prior to allowing the shmat system call to attach the
@@ -1511,11 +1790,15 @@ static void acslinux_shm_free_security(struct kern_ipc_perm *shp)
  *	@shmflg contains the operational flags.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(shp);
+    requires valid_str(shmaddr);
+ */
 static int acslinux_shm_shmat(struct kern_ipc_perm *shp, char __user *shmaddr,
 				int shmflg)
 {
 	return 0;
 }
+
 
 /** @shm_shmctl:
  *	Check permission when a shared memory control operation specified by
@@ -1525,10 +1808,13 @@ static int acslinux_shm_shmat(struct kern_ipc_perm *shp, char __user *shmaddr,
  *	@cmd contains the operation to be performed.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_kern_ipc_perm(shp);
+ */
 static int acslinux_shm_shmctl(struct kern_ipc_perm *shp, int cmd)
 {
 	return 0;
 }
+
 
 /** @syslog:
  *	Check permission before accessing the kernel message ring or changing
@@ -1538,10 +1824,12 @@ static int acslinux_shm_shmctl(struct kern_ipc_perm *shp, int cmd)
  *	@from_file indicates the context of action (if it came from /proc).
  *	Return 0 if permission is granted.
  */
+
 static int acslinux_syslog(int type)
 {
 	return 0;
 }
+
 
 /** @task_alloc:
  *	@task task being allocated.
@@ -1549,10 +1837,13 @@ static int acslinux_syslog(int type)
  *	Handle allocation of task-related resources.
  *	Returns a zero on success, negative values on failure.
  */
+/*@ requires valid_task_struct(task);
+ */
 static int acslinux_task_alloc(struct task_struct *task, unsigned long clone_flags)
 {
 	return 0;
 }
+
 
 /** @task_fix_setuid:
  *	Update the module's state after setting one or more of the user
@@ -1564,25 +1855,35 @@ static int acslinux_task_alloc(struct task_struct *task, unsigned long clone_fla
  *	@flags contains one of the LSM_SETID_* values.
  *	Return 0 on success.
  */
+/*@ requires valid_cred(new);
+    requires valid_cred(old);
+ */
 static int acslinux_task_fix_setuid(struct cred *new, const struct cred *old,
 				int flags)
 {
 	return 0;
 }
 
+
 /** @task_free:
  *	@task task about to be freed.
  *	Handle release of task-related resources. (Note that this can be called
  *	from interrupt context.)
  */
+/*@ requires valid_task_struct(task);
+ */
 static void acslinux_task_free(struct task_struct *task)
 {
 }
 
+
+/*@ requires valid_task_struct(p);
+ */
 static int acslinux_task_getioprio(struct task_struct *p)
 {
 	return 0;
 }
+
 
 /** @task_getpgid:
  *	Check permission before getting the process group identifier of the
@@ -1590,10 +1891,13 @@ static int acslinux_task_getioprio(struct task_struct *p)
  *	@p contains the task_struct for the process.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_task_struct(p);
+ */
 static int acslinux_task_getpgid(struct task_struct *p)
 {
 	return 0;
 }
+
 
 /** @task_getscheduler:
  *	Check permission before obtaining scheduling information for process
@@ -1601,19 +1905,25 @@ static int acslinux_task_getpgid(struct task_struct *p)
  *	@p contains the task_struct for process.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_task_struct(p);
+ */
 static int acslinux_task_getscheduler(struct task_struct *p)
 {
 	return 0;
 }
+
 
 /** @task_getsecid:
  *	Retrieve the security identifier of the process @p.
  *	@p contains the task_struct for the process and place is into @secid.
  *	In case of failure, @secid will be set to zero.
  */
+/*@ requires valid_task_struct(p);
+ */
 static void acslinux_task_getsecid(struct task_struct *p, u32 *secid)
 {
 }
+
 
 /** @task_getsid:
  *	Check permission before getting the session identifier of the process
@@ -1621,10 +1931,13 @@ static void acslinux_task_getsecid(struct task_struct *p, u32 *secid)
  *	@p contains the task_struct for the process.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_task_struct(p);
+ */
 static int acslinux_task_getsid(struct task_struct *p)
 {
 	return 0;
 }
+
 
 /** @task_kill:
  *	Check permission before sending signal @sig to @p.  @info can be NULL,
@@ -1640,16 +1953,24 @@ static int acslinux_task_getsid(struct task_struct *p)
  *	NULL if the current task is the originator.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_task_struct(p);
+    requires valid_siginfo(info);
+    requires valid_cred(cred);
+ */
 static int acslinux_task_kill(struct task_struct *p, struct siginfo *info,
 				int sig, const struct cred *cred)
 {
 	return 0;
 }
 
+
+/*@ requires valid_task_struct(p);
+ */
 static int acslinux_task_movememory(struct task_struct *p)
 {
 	return 0;
 }
+
 
 /** @task_prctl:
  *	Check permission before performing a process control operation on the
@@ -1662,11 +1983,13 @@ static int acslinux_task_movememory(struct task_struct *p)
  *	Return -ENOSYS if no-one wanted to handle this op, any other value to
  *	cause prctl() to return immediately with that value.
  */
+
 static int acslinux_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 				unsigned long arg4, unsigned long arg5)
 {
 	return 0;
 }
+
 
 /** @task_prlimit:
  *	Check permission before getting and/or setting the resource limits of
@@ -1677,16 +2000,23 @@ static int acslinux_task_prctl(int option, unsigned long arg2, unsigned long arg
  *	resource limits are being read, modified, or both.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_cred(cred);
+    requires valid_cred(tcred);
+ */
 static int acslinux_task_prlimit(const struct cred *cred, const struct cred *tcred,
 			    unsigned int flags)
 {
 	return 0;
 }
 
+
+/*@ requires valid_task_struct(p);
+ */
 static int acslinux_task_setioprio(struct task_struct *p, int ioprio)
 {
 	return 0;
 }
+
 
 /** @task_setnice:
  *	Check permission before setting the nice value of @p to @nice.
@@ -1694,10 +2024,13 @@ static int acslinux_task_setioprio(struct task_struct *p, int ioprio)
  *	@nice contains the new nice value.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_task_struct(p);
+ */
 static int acslinux_task_setnice(struct task_struct *p, int nice)
 {
 	return 0;
 }
+
 
 /** @task_setpgid:
  *	Check permission before setting the process group identifier of the
@@ -1706,10 +2039,13 @@ static int acslinux_task_setnice(struct task_struct *p, int nice)
  *	@pgid contains the new pgid.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_task_struct(p);
+ */
 static int acslinux_task_setpgid(struct task_struct *p, pid_t pgid)
 {
 	return 0;
 }
+
 
 /** @task_setrlimit:
  *	Check permission before setting the resource limits of process @p
@@ -1720,11 +2056,15 @@ static int acslinux_task_setpgid(struct task_struct *p, pid_t pgid)
  *	@new_rlim contains the new limits for @resource.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_task_struct(p);
+    requires valid_rlimit(new_rlim);
+ */
 static int acslinux_task_setrlimit(struct task_struct *p, unsigned int resource,
 				struct rlimit *new_rlim)
 {
 	return 0;
 }
+
 
 /** @task_setscheduler:
  *	Check permission before setting scheduling policy and/or parameters of
@@ -1734,10 +2074,13 @@ static int acslinux_task_setrlimit(struct task_struct *p, unsigned int resource,
  *	@lp contains the scheduling parameters.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_task_struct(p);
+ */
 static int acslinux_task_setscheduler(struct task_struct *p)
 {
 	return 0;
 }
+
 
 /** @task_to_inode:
  *	Set the security attributes for an inode based on an associated task's
@@ -1745,15 +2088,21 @@ static int acslinux_task_setscheduler(struct task_struct *p)
  *	@p contains the task_struct for the task.
  *	@inode contains the inode structure for the inode.
  */
+/*@ requires valid_task_struct(p);
+    requires valid_inode(inode);
+ */
 static void acslinux_task_to_inode(struct task_struct *p, struct inode *inode)
 {
 }
+
 
 /** @vm_enough_memory:
  *	Check permissions for allocating a new virtual mapping.
  *	@mm contains the mm struct it is being added to.
  *	@pages contains the number of pages.
  *	Return 0 if permission is granted.
+ */
+/*@ requires valid_mm_struct(mm);
  */
 static int acslinux_vm_enough_memory(struct mm_struct *mm, long pages)
 {
@@ -1764,14 +2113,17 @@ static int acslinux_vm_enough_memory(struct mm_struct *mm, long pages)
 
 #ifdef CONFIG_AUDIT
 
+
 /** @audit_rule_free:
  *	Deallocate the LSM audit rule structure previously allocated by
  *	audit_rule_init.
  *	@rule contains the allocated rule
  */
+
 static void acslinux_audit_rule_free(void *lsmrule)
 {
 }
+
 
 /** @audit_rule_init:
  *	Allocate and initialize an LSM audit rule structure.
@@ -1783,11 +2135,14 @@ static void acslinux_audit_rule_free(void *lsmrule)
  *	Return 0 if @lsmrule has been successfully set,
  *	-EINVAL in case of an invalid rule.
  */
+/*@ requires valid_str(rulestr);
+ */
 static int acslinux_audit_rule_init(u32 field, u32 op, char *rulestr,
 				void **lsmrule)
 {
 	return 0;
 }
+
 
 /** @audit_rule_known:
  *	Specifies whether given @rule contains any fields related to
@@ -1795,10 +2150,13 @@ static int acslinux_audit_rule_init(u32 field, u32 op, char *rulestr,
  *	@rule contains the audit rule of interest.
  *	Return 1 in case of relation found, 0 otherwise.
  */
+/*@ requires valid_audit_krule(krule);
+ */
 static int acslinux_audit_rule_known(struct audit_krule *krule)
 {
 	return 0;
 }
+
 
 /** @audit_rule_match:
  *	Determine if given @secid matches a rule previously approved
@@ -1810,6 +2168,8 @@ static int acslinux_audit_rule_known(struct audit_krule *krule)
  *	@actx points to the audit context associated with the check.
  *	Return 1 if secid matches the rule, 0 if it does not, -ERRNO on failure.
  */
+/*@ requires valid_audit_context(actx);
+ */
 static int acslinux_audit_rule_match(u32 secid, u32 field, u32 op, void *lsmrule,
 				struct audit_context *actx)
 {
@@ -1820,60 +2180,80 @@ static int acslinux_audit_rule_match(u32 secid, u32 field, u32 op, void *lsmrule
 
 #ifdef CONFIG_BPF_SYSCALL
 
+
 /** @bpf:
  *	Do a initial check for all bpf syscalls after the attribute is copied
  *	into the kernel. The actual security module can implement their own
  *	rules to check the specific cmd they need.
  */
+
 static int acslinux_bpf(int cmd, union bpf_attr *attr,
 				 unsigned int size)
 {
 	return 0;
 }
 
+
 /** @bpf_map:
  *	Do a check when the kernel generate and return a file descriptor for
  *	eBPF maps.
+ */
+/*@ requires valid_bpf_map(map);
  */
 static int acslinux_bpf_map(struct bpf_map *map, fmode_t fmode)
 {
 	return 0;
 }
 
+
 /** @bpf_map_alloc_security:
  *	Initialize the security field inside bpf map.
+ */
+/*@ requires valid_bpf_map(map);
  */
 static int acslinux_bpf_map_alloc_security(struct bpf_map *map)
 {
 	return 0;
 }
 
+
 /** @bpf_map_free_security:
  *	Clean up the security information stored inside bpf map.
+ */
+/*@ requires valid_bpf_map(map);
  */
 static void acslinux_bpf_map_free_security(struct bpf_map *map)
 {
 }
 
+
 /** @bpf_prog:
  *	Do a check when the kernel generate and return a file descriptor for
  *	eBPF programs.
+ */
+/*@ requires valid_bpf_prog(prog);
  */
 static int acslinux_bpf_prog(struct bpf_prog *prog)
 {
 	return 0;
 }
 
+
 /** @bpf_prog_alloc_security:
  *	Initialize the security field inside bpf program.
+ */
+/*@ requires valid_bpf_prog_aux(aux);
  */
 static int acslinux_bpf_prog_alloc_security(struct bpf_prog_aux *aux)
 {
 	return 0;
 }
 
+
 /** @bpf_prog_free_security:
  *	Clean up the security information stored inside bpf prog.
+ */
+/*@ requires valid_bpf_prog_aux(aux);
  */
 static void acslinux_bpf_prog_free_security(struct bpf_prog_aux *aux)
 {
@@ -1883,6 +2263,7 @@ static void acslinux_bpf_prog_free_security(struct bpf_prog_aux *aux)
 
 #ifdef CONFIG_KEYS
 
+
 /** @key_alloc:
  *	Permit allocation of a key and assign security data. Note that key does
  *	not have a serial number assigned at this point.
@@ -1890,20 +2271,27 @@ static void acslinux_bpf_prog_free_security(struct bpf_prog_aux *aux)
  *	@flags is the allocation flags
  *	Return 0 if permission is granted, -ve error otherwise.
  */
+/*@ requires valid_key(key);
+    requires valid_cred(cred);
+ */
 static int acslinux_key_alloc(struct key *key, const struct cred *cred,
 				unsigned long flags)
 {
 	return 0;
 }
 
+
 /** @key_free:
  *	Notification of destruction; free security data.
  *	@key points to the key.
  *	No return value.
  */
+/*@ requires valid_key(key);
+ */
 static void acslinux_key_free(struct key *key)
 {
 }
+
 
 /** @key_getsecurity:
  *	Get a textual representation of the security context attached to a key
@@ -1917,10 +2305,13 @@ static void acslinux_key_free(struct key *key)
  *	an error.
  *	May also return 0 (and a NULL buffer pointer) if there is no label.
  */
+/*@ requires valid_key(key);
+ */
 static int acslinux_key_getsecurity(struct key *key, char **_buffer)
 {
 	return 0;
 }
+
 
 /** @key_permission:
  *	See whether a specific operational right is granted to a process on a
@@ -1930,6 +2321,8 @@ static int acslinux_key_getsecurity(struct key *key, char **_buffer)
  *	evaluate the security data on the key.
  *	@perm describes the combination of permissions required of this key.
  *	Return 0 if permission is granted, -ve error otherwise.
+ */
+/*@ requires valid_cred(cred);
  */
 static int acslinux_key_permission(key_ref_t key_ref, const struct cred *cred,
 				unsigned perm)
@@ -1941,15 +2334,18 @@ static int acslinux_key_permission(key_ref_t key_ref, const struct cred *cred,
 
 #ifdef CONFIG_SECURITY_INFINIBAND
 
+
 /** @ib_alloc_security:
  *	Allocate a security structure for Infiniband objects.
  *	@sec pointer to a security structure pointer.
  *	Returns 0 on success, non-zero on failure
  */
+
 static int acslinux_ib_alloc_security(void **sec)
 {
 	return 0;
 }
+
 
 /** @ib_endport_manage_subnet:
  *	Check permissions to send and receive SMPs on a end port.
@@ -1957,19 +2353,24 @@ static int acslinux_ib_alloc_security(void **sec)
  *	@port_num the port number.
  *	@sec pointer to a security structure.
  */
+/*@ requires valid_str(dev_name);
+ */
 static int acslinux_ib_endport_manage_subnet(void *sec, const char *dev_name,
 					u8 port_num)
 {
 	return 0;
 }
 
+
 /** @ib_free_security:
  *	Deallocate an Infiniband security structure.
  *	@sec contains the security structure to be freed.
  */
+
 static void acslinux_ib_free_security(void *sec)
 {
 }
+
 
 /** @ib_pkey_access:
  *	Check permission to access a pkey when modifing a QP.
@@ -1977,6 +2378,7 @@ static void acslinux_ib_free_security(void *sec)
  *	@pkey the pkey to be accessed.
  *	@sec pointer to a security structure.
  */
+
 static int acslinux_ib_pkey_access(void *sec, u64 subnet_prefix, u16 pkey)
 {
 	return 0;
@@ -1986,16 +2388,25 @@ static int acslinux_ib_pkey_access(void *sec, u64 subnet_prefix, u16 pkey)
 
 #ifdef CONFIG_SECURITY_NETWORK
 
+
 /** @inet_conn_established:
  *	Sets the connection's peersid to the secmark on skb.
+ */
+/*@ requires valid_sock(sk);
+    requires valid_sk_buff(skb);
  */
 static void acslinux_inet_conn_established(struct sock *sk, struct sk_buff *skb)
 {
 }
 
+
 /** @inet_conn_request:
  *	Sets the openreq's sid to socket's sid with MLS portion taken
  *	from peer sid.
+ */
+/*@ requires valid_sock(sk);
+    requires valid_sk_buff(skb);
+    requires valid_request_sock(req);
  */
 static int acslinux_inet_conn_request(struct sock *sk, struct sk_buff *skb,
 					struct request_sock *req)
@@ -2003,21 +2414,30 @@ static int acslinux_inet_conn_request(struct sock *sk, struct sk_buff *skb,
 	return 0;
 }
 
+
 /** @inet_csk_clone:
  *	Sets the new child socket's sid to the openreq sid.
+ */
+/*@ requires valid_sock(newsk);
+    requires valid_request_sock(req);
  */
 static void acslinux_inet_csk_clone(struct sock *newsk,
 				const struct request_sock *req)
 {
 }
 
+
 /** @req_classify_flow:
  *	Sets the flow's sid to the openreq sid.
+ */
+/*@ requires valid_request_sock(req);
+    requires valid_flowi(fl);
  */
 static void acslinux_req_classify_flow(const struct request_sock *req,
 					struct flowi *fl)
 {
 }
+
 
 /** @sctp_assoc_request:
  *	Passes the @ep and @chunk->skb of the association INIT packet to
@@ -2026,11 +2446,15 @@ static void acslinux_req_classify_flow(const struct request_sock *req,
  *	@skb pointer to skbuff of association packet.
  *	Return 0 on success, error on failure.
  */
+/*@ requires valid_sctp_endpoint(ep);
+    requires valid_sk_buff(skb);
+ */
 static int acslinux_sctp_assoc_request(struct sctp_endpoint *ep,
 				  struct sk_buff *skb)
 {
 	return 0;
 }
+
 
 /** @sctp_bind_connect:
  *	Validiate permissions required for each address associated with sock
@@ -2044,11 +2468,15 @@ static int acslinux_sctp_assoc_request(struct sctp_endpoint *ep,
  *	@addrlen total length of address(s).
  *	Return 0 on success, error on failure.
  */
+/*@ requires valid_sock(sk);
+    requires valid_sockaddr(address);
+ */
 static int acslinux_sctp_bind_connect(struct sock *sk, int optname,
 				 struct sockaddr *address, int addrlen)
 {
 	return 0;
 }
+
 
 /** @sctp_sk_clone:
  *	Called whenever a new socket is created by accept(2) (i.e. a TCP
@@ -2058,65 +2486,93 @@ static int acslinux_sctp_bind_connect(struct sock *sk, int optname,
  *	@sk pointer to current sock structure.
  *	@sk pointer to new sock structure.
  */
+/*@ requires valid_sctp_endpoint(ep);
+    requires valid_sock(sk);
+    requires valid_sock(newsk);
+ */
 static void acslinux_sctp_sk_clone(struct sctp_endpoint *ep, struct sock *sk,
 			      struct sock *newsk)
 {
 }
 
+
+
 static void acslinux_secmark_refcount_dec(void)
 {
 }
+
+
 
 static void acslinux_secmark_refcount_inc(void)
 {
 }
 
+
 /** @secmark_relabel_packet:
  *	check if the process should be allowed to relabel packets to
  *	the given secid
  */
+
 static int acslinux_secmark_relabel_packet(u32 secid)
 {
 	return 0;
 }
 
+
 /** @sk_alloc_security:
  *	Allocate and attach a security structure to the sk->sk_security field,
  *	which is used to copy security attributes between local stream sockets.
+ */
+/*@ requires valid_sock(sk);
  */
 static int acslinux_sk_alloc_security(struct sock *sk, int family, gfp_t priority)
 {
 	return 0;
 }
 
+
 /** @sk_clone_security:
  *	Clone/copy security structure.
+ */
+/*@ requires valid_sock(sk);
+    requires valid_sock(newsk);
  */
 static void acslinux_sk_clone_security(const struct sock *sk, struct sock *newsk)
 {
 }
 
+
 /** @sk_free_security:
  *	Deallocate security structure.
+ */
+/*@ requires valid_sock(sk);
  */
 static void acslinux_sk_free_security(struct sock *sk)
 {
 }
 
+
 /** @sk_getsecid:
  *	Retrieve the LSM-specific secid for the sock to enable caching
  *	of network authorizations.
+ */
+/*@ requires valid_sock(sk);
  */
 static void acslinux_sk_getsecid(struct sock *sk, u32 *secid)
 {
 }
 
+
 /** @sock_graft:
  *	Sets the socket's isec sid to the sock's sid.
+ */
+/*@ requires valid_sock(sk);
+    requires valid_socket(parent);
  */
 static void acslinux_sock_graft(struct sock *sk, struct socket *parent)
 {
 }
+
 
 /** @socket_accept:
  *	Check permission before accepting a new connection.  Note that the new
@@ -2126,10 +2582,14 @@ static void acslinux_sock_graft(struct sock *sk, struct socket *parent)
  *	@newsock contains the newly created server socket for connection.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_socket(sock);
+    requires valid_socket(newsock);
+ */
 static int acslinux_socket_accept(struct socket *sock, struct socket *newsock)
 {
 	return 0;
 }
+
 
 /** @socket_bind:
  *	Check permission before socket protocol layer bind operation is
@@ -2140,11 +2600,15 @@ static int acslinux_socket_accept(struct socket *sock, struct socket *newsock)
  *	@addrlen contains the length of address.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_socket(sock);
+    requires valid_sockaddr(address);
+ */
 static int acslinux_socket_bind(struct socket *sock, struct sockaddr *address,
 				int addrlen)
 {
 	return 0;
 }
+
 
 /** @socket_connect:
  *	Check permission before socket protocol layer connect operation
@@ -2154,11 +2618,15 @@ static int acslinux_socket_bind(struct socket *sock, struct sockaddr *address,
  *	@addrlen contains the length of address.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_socket(sock);
+    requires valid_sockaddr(address);
+ */
 static int acslinux_socket_connect(struct socket *sock, struct sockaddr *address,
 				int addrlen)
 {
 	return 0;
 }
+
 
 /** @socket_create:
  *	Check permissions prior to creating a new socket.
@@ -2168,10 +2636,12 @@ static int acslinux_socket_connect(struct socket *sock, struct sockaddr *address
  *	@kern set to 1 if a kernel socket.
  *	Return 0 if permission is granted.
  */
+
 static int acslinux_socket_create(int family, int type, int protocol, int kern)
 {
 	return 0;
 }
+
 
 /** @socket_getpeername:
  *	Check permission before the remote address (name) of a socket object
@@ -2179,10 +2649,13 @@ static int acslinux_socket_create(int family, int type, int protocol, int kern)
  *	@sock contains the socket structure.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_socket(sock);
+ */
 static int acslinux_socket_getpeername(struct socket *sock)
 {
 	return 0;
 }
+
 
 /** @socket_getpeersec_dgram:
  *	This hook allows the security module to provide peer socket security
@@ -2196,11 +2669,15 @@ static int acslinux_socket_getpeername(struct socket *sock)
  *	@seclen is the maximum length for @secdata
  *	Return 0 on success, error on failure.
  */
+/*@ requires valid_socket(sock);
+    requires valid_sk_buff(skb);
+ */
 static int acslinux_socket_getpeersec_dgram(struct socket *sock,
 					struct sk_buff *skb, u32 *secid)
 {
 	return 0;
 }
+
 
 /** @socket_getpeersec_stream:
  *	This hook allows the security module to provide peer socket security
@@ -2216,6 +2693,9 @@ static int acslinux_socket_getpeersec_dgram(struct socket *sock,
  *	Return 0 if all is well, otherwise, typical getsockopt return
  *	values.
  */
+/*@ requires valid_socket(sock);
+    requires valid_str(optval);
+ */
 static int acslinux_socket_getpeersec_stream(struct socket *sock,
 					char __user *optval,
 					int __user *optlen, unsigned len)
@@ -2223,16 +2703,20 @@ static int acslinux_socket_getpeersec_stream(struct socket *sock,
 	return 0;
 }
 
+
 /** @socket_getsockname:
  *	Check permission before the local address (name) of the socket object
  *	@sock is retrieved.
  *	@sock contains the socket structure.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_socket(sock);
+ */
 static int acslinux_socket_getsockname(struct socket *sock)
 {
 	return 0;
 }
+
 
 /** @socket_getsockopt:
  *	Check permissions before retrieving the options associated with socket
@@ -2242,10 +2726,13 @@ static int acslinux_socket_getsockname(struct socket *sock)
  *	@optname contains the name of option to retrieve.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_socket(sock);
+ */
 static int acslinux_socket_getsockopt(struct socket *sock, int level, int optname)
 {
 	return 0;
 }
+
 
 /** @socket_listen:
  *	Check permission before socket protocol layer listen operation.
@@ -2253,10 +2740,13 @@ static int acslinux_socket_getsockopt(struct socket *sock, int level, int optnam
  *	@backlog contains the maximum length for the pending connection queue.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_socket(sock);
+ */
 static int acslinux_socket_listen(struct socket *sock, int backlog)
 {
 	return 0;
 }
+
 
 /** @socket_post_create:
  *	This hook allows a module to update or allocate a per-socket security
@@ -2273,11 +2763,14 @@ static int acslinux_socket_listen(struct socket *sock, int backlog)
  *	@protocol contains the requested protocol.
  *	@kern set to 1 if a kernel socket.
  */
+/*@ requires valid_socket(sock);
+ */
 static int acslinux_socket_post_create(struct socket *sock, int family, int type,
 					int protocol, int kern)
 {
 	return 0;
 }
+
 
 /** @socket_recvmsg:
  *	Check permission before receiving a message from a socket.
@@ -2287,11 +2780,15 @@ static int acslinux_socket_post_create(struct socket *sock, int family, int type
  *	@flags contains the operational flags.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_socket(sock);
+    requires valid_msghdr(msg);
+ */
 static int acslinux_socket_recvmsg(struct socket *sock, struct msghdr *msg,
 				int size, int flags)
 {
 	return 0;
 }
+
 
 /** @socket_sendmsg:
  *	Check permission before transmitting a message to another socket.
@@ -2300,11 +2797,15 @@ static int acslinux_socket_recvmsg(struct socket *sock, struct msghdr *msg,
  *	@size contains the size of message.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_socket(sock);
+    requires valid_msghdr(msg);
+ */
 static int acslinux_socket_sendmsg(struct socket *sock, struct msghdr *msg,
 				int size)
 {
 	return 0;
 }
+
 
 /** @socket_setsockopt:
  *	Check permissions before setting the options associated with socket
@@ -2314,10 +2815,13 @@ static int acslinux_socket_sendmsg(struct socket *sock, struct msghdr *msg,
  *	@optname contains the name of the option to set.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_socket(sock);
+ */
 static int acslinux_socket_setsockopt(struct socket *sock, int level, int optname)
 {
 	return 0;
 }
+
 
 /** @socket_shutdown:
  *	Checks permission before all or part of a connection on the socket
@@ -2327,10 +2831,13 @@ static int acslinux_socket_setsockopt(struct socket *sock, int level, int optnam
  *	are handled.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_socket(sock);
+ */
 static int acslinux_socket_shutdown(struct socket *sock, int how)
 {
 	return 0;
 }
+
 
 /** @socket_sock_rcv_skb:
  *	Check permissions on incoming network packets.  This hook is distinct
@@ -2340,10 +2847,14 @@ static int acslinux_socket_shutdown(struct socket *sock, int how)
  *	@sk contains the sock (not socket) associated with the incoming sk_buff.
  *	@skb contains the incoming network data.
  */
+/*@ requires valid_sock(sk);
+    requires valid_sk_buff(skb);
+ */
 static int acslinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
 {
 	return 0;
 }
+
 
 /** @tun_dev_alloc_security:
  *	This hook allows a module to allocate a security structure for a TUN
@@ -2351,10 +2862,12 @@ static int acslinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
  *	@security pointer to a security structure pointer.
  *	Returns a zero on success, negative values on failure.
  */
+
 static int acslinux_tun_dev_alloc_security(void **security)
 {
 	return 0;
 }
+
 
 /** @tun_dev_attach:
  *	This hook can be used by the module to update any security state
@@ -2362,46 +2875,57 @@ static int acslinux_tun_dev_alloc_security(void **security)
  *	@sk contains the existing sock structure.
  *	@security pointer to the TUN device's security structure.
  */
+/*@ requires valid_sock(sk);
+ */
 static int acslinux_tun_dev_attach(struct sock *sk, void *security)
 {
 	return 0;
 }
 
+
 /** @tun_dev_attach_queue:
  *	Check permissions prior to attaching to a TUN device queue.
  *	@security pointer to the TUN device's security structure.
  */
+
 static int acslinux_tun_dev_attach_queue(void *security)
 {
 	return 0;
 }
 
+
 /** @tun_dev_create:
  *	Check permissions prior to creating a new TUN device.
  */
+
 static int acslinux_tun_dev_create(void)
 {
 	return 0;
 }
+
 
 /** @tun_dev_free_security:
  *	This hook allows a module to free the security structure for a TUN
  *	device.
  *	@security pointer to the TUN device's security structure
  */
+
 static void acslinux_tun_dev_free_security(void *security)
 {
 }
+
 
 /** @tun_dev_open:
  *	This hook can be used by the module to update any security state
  *	associated with the TUN device's security structure.
  *	@security pointer to the TUN devices's security structure.
  */
+
 static int acslinux_tun_dev_open(void *security)
 {
 	return 0;
 }
+
 
 /** @unix_may_send:
  *	Check permissions before connecting or sending datagrams from @sock to
@@ -2410,10 +2934,14 @@ static int acslinux_tun_dev_open(void *security)
  *	@other contains the peer socket structure.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_socket(sock);
+    requires valid_socket(other);
+ */
 static int acslinux_unix_may_send(struct socket *sock, struct socket *other)
 {
 	return 0;
 }
+
 
 /** @unix_stream_connect:
  *	Check permissions before establishing a Unix domain stream connection
@@ -2422,6 +2950,10 @@ static int acslinux_unix_may_send(struct socket *sock, struct socket *other)
  *	@other contains the peer sock structure.
  *	@newsk contains the new sock structure.
  *	Return 0 if permission is granted.
+ */
+/*@ requires valid_sock(sock);
+    requires valid_sock(other);
+    requires valid_sock(newsk);
  */
 static int acslinux_unix_stream_connect(struct sock *sock, struct sock *other,
 					struct sock *newsk)
@@ -2433,16 +2965,20 @@ static int acslinux_unix_stream_connect(struct sock *sock, struct sock *other,
 
 #ifdef CONFIG_SECURITY_NETWORK_XFRM
 
+
 /** @xfrm_decode_session:
  *	@skb points to skb to decode.
  *	@secid points to the flow key secid to set.
  *	@ckall says if all xfrms used should be checked for same secid.
  *	Return 0 if ckall is zero or all xfrms used have the same secid.
  */
+/*@ requires valid_sk_buff(skb);
+ */
 static int acslinux_xfrm_decode_session(struct sk_buff *skb, u32 *secid, int ckall)
 {
 	return 0;
 }
+
 
 /** @xfrm_policy_alloc_security:
  *	@ctxp is a pointer to the xfrm_sec_ctx being added to Security Policy
@@ -2454,12 +2990,15 @@ static int acslinux_xfrm_decode_session(struct sk_buff *skb, u32 *secid, int cka
  *	Return 0 if operation was successful (memory to allocate, legal context)
  *	@gfp is to specify the context for the allocation
  */
+/*@ requires valid_xfrm_user_sec_ctx(sec_ctx);
+ */
 static int acslinux_xfrm_policy_alloc_security(struct xfrm_sec_ctx **ctxp,
 					  struct xfrm_user_sec_ctx *sec_ctx,
 						gfp_t gfp)
 {
 	return 0;
 }
+
 
 /** @xfrm_policy_clone_security:
  *	@old_ctx contains an existing xfrm_sec_ctx.
@@ -2468,28 +3007,37 @@ static int acslinux_xfrm_policy_alloc_security(struct xfrm_sec_ctx **ctxp,
  *	information from the old_ctx structure.
  *	Return 0 if operation was successful (memory to allocate).
  */
+/*@ requires valid_xfrm_sec_ctx(old_ctx);
+ */
 static int acslinux_xfrm_policy_clone_security(struct xfrm_sec_ctx *old_ctx,
 						struct xfrm_sec_ctx **new_ctx)
 {
 	return 0;
 }
 
+
 /** @xfrm_policy_delete_security:
  *	@ctx contains the xfrm_sec_ctx.
  *	Authorize deletion of xp->security.
+ */
+/*@ requires valid_xfrm_sec_ctx(ctx);
  */
 static int acslinux_xfrm_policy_delete_security(struct xfrm_sec_ctx *ctx)
 {
 	return 0;
 }
 
+
 /** @xfrm_policy_free_security:
  *	@ctx contains the xfrm_sec_ctx
  *	Deallocate xp->security.
  */
+/*@ requires valid_xfrm_sec_ctx(ctx);
+ */
 static void acslinux_xfrm_policy_free_security(struct xfrm_sec_ctx *ctx)
 {
 }
+
 
 /** @xfrm_policy_lookup:
  *	@ctx contains the xfrm_sec_ctx for which the access control is being
@@ -2503,11 +3051,14 @@ static void acslinux_xfrm_policy_free_security(struct xfrm_sec_ctx *ctx)
  *	Return 0 if permission is granted, -ESRCH otherwise, or -errno
  *	on other errors.
  */
+/*@ requires valid_xfrm_sec_ctx(ctx);
+ */
 static int acslinux_xfrm_policy_lookup(struct xfrm_sec_ctx *ctx, u32 fl_secid,
 					u8 dir)
 {
 	return 0;
 }
+
 
 /** @xfrm_state_alloc:
  *	@x contains the xfrm_state being added to the Security Association
@@ -2519,11 +3070,15 @@ static int acslinux_xfrm_policy_lookup(struct xfrm_sec_ctx *ctx, u32 fl_secid,
  *	context to correspond to sec_ctx. Return 0 if operation was successful
  *	(memory to allocate, legal context).
  */
+/*@ requires valid_xfrm_state(x);
+    requires valid_xfrm_user_sec_ctx(sec_ctx);
+ */
 static int acslinux_xfrm_state_alloc(struct xfrm_state *x,
 				struct xfrm_user_sec_ctx *sec_ctx)
 {
 	return 0;
 }
+
 
 /** @xfrm_state_alloc_acquire:
  *	@x contains the xfrm_state being added to the Security Association
@@ -2536,6 +3091,9 @@ static int acslinux_xfrm_state_alloc(struct xfrm_state *x,
  *	context to correspond to secid. Return 0 if operation was successful
  *	(memory to allocate, legal context).
  */
+/*@ requires valid_xfrm_state(x);
+    requires valid_xfrm_sec_ctx(polsec);
+ */
 static int acslinux_xfrm_state_alloc_acquire(struct xfrm_state *x,
 					struct xfrm_sec_ctx *polsec,
 					u32 secid)
@@ -2543,28 +3101,39 @@ static int acslinux_xfrm_state_alloc_acquire(struct xfrm_state *x,
 	return 0;
 }
 
+
 /** @xfrm_state_delete_security:
  *	@x contains the xfrm_state.
  *	Authorize deletion of x->security.
+ */
+/*@ requires valid_xfrm_state(x);
  */
 static int acslinux_xfrm_state_delete_security(struct xfrm_state *x)
 {
 	return 0;
 }
 
+
 /** @xfrm_state_free_security:
  *	@x contains the xfrm_state.
  *	Deallocate x->security.
  */
+/*@ requires valid_xfrm_state(x);
+ */
 static void acslinux_xfrm_state_free_security(struct xfrm_state *x)
 {
 }
+
 
 /** @xfrm_state_pol_flow_match:
  *	@x contains the state to match.
  *	@xp contains the policy to check for a match.
  *	@fl contains the flow to check for a match.
  *	Return 1 if there is a match.
+ */
+/*@ requires valid_xfrm_state(x);
+    requires valid_xfrm_policy(xp);
+    requires valid_flowi(fl);
  */
 static int acslinux_xfrm_state_pol_flow_match(struct xfrm_state *x,
 						struct xfrm_policy *xp,
@@ -2577,6 +3146,7 @@ static int acslinux_xfrm_state_pol_flow_match(struct xfrm_state *x,
 
 #ifdef CONFIG_SECURITY_PATH
 
+
 /** @path_chmod:
  *	Check for permission to change DAC's permission of a file or directory.
  *	@dentry contains the dentry structure.
@@ -2584,10 +3154,13 @@ static int acslinux_xfrm_state_pol_flow_match(struct xfrm_state *x,
  *	@mode contains DAC's mode.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_path(path);
+ */
 static int acslinux_path_chmod(const struct path *path, umode_t mode)
 {
 	return 0;
 }
+
 
 /** @path_chown:
  *	Check for permission to change owner/group of a file or directory.
@@ -2596,20 +3169,26 @@ static int acslinux_path_chmod(const struct path *path, umode_t mode)
  *	@gid contains new group's ID.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_path(path);
+ */
 static int acslinux_path_chown(const struct path *path, kuid_t uid, kgid_t gid)
 {
 	return 0;
 }
+
 
 /** @path_chroot:
  *	Check for permission to change root directory.
  *	@path contains the path structure.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_path(path);
+ */
 static int acslinux_path_chroot(const struct path *path)
 {
 	return 0;
 }
+
 
 /** @path_link:
  *	Check permission before creating a new hard link to a file.
@@ -2620,11 +3199,16 @@ static int acslinux_path_chroot(const struct path *path)
  *	@new_dentry contains the dentry structure for the new link.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_dentry(old_dentry);
+    requires valid_path(new_dir);
+    requires valid_dentry(new_dentry);
+ */
 static int acslinux_path_link(struct dentry *old_dentry, const struct path *new_dir,
 				struct dentry *new_dentry)
 {
 	return 0;
 }
+
 
 /** @path_mkdir:
  *	Check permissions to create a new directory in the existing directory
@@ -2635,11 +3219,15 @@ static int acslinux_path_link(struct dentry *old_dentry, const struct path *new_
  *	@mode contains the mode of new directory.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_path(dir);
+    requires valid_dentry(dentry);
+ */
 static int acslinux_path_mkdir(const struct path *dir, struct dentry *dentry,
 				umode_t mode)
 {
 	return 0;
 }
+
 
 /** @path_mknod:
  *	Check permissions when creating a file. Note that this hook is called
@@ -2651,11 +3239,15 @@ static int acslinux_path_mkdir(const struct path *dir, struct dentry *dentry,
  *	the decoded device number.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_path(dir);
+    requires valid_dentry(dentry);
+ */
 static int acslinux_path_mknod(const struct path *dir, struct dentry *dentry,
 				umode_t mode, unsigned int dev)
 {
 	return 0;
 }
+
 
 /** @path_rename:
  *	Check for permission to rename a file or directory.
@@ -2665,12 +3257,18 @@ static int acslinux_path_mknod(const struct path *dir, struct dentry *dentry,
  *	@new_dentry contains the dentry structure of the new link.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_path(old_dir);
+    requires valid_dentry(old_dentry);
+    requires valid_path(new_dir);
+    requires valid_dentry(new_dentry);
+ */
 static int acslinux_path_rename(const struct path *old_dir, struct dentry *old_dentry,
 				const struct path *new_dir,
 				struct dentry *new_dentry)
 {
 	return 0;
 }
+
 
 /** @path_rmdir:
  *	Check the permission to remove a directory.
@@ -2679,10 +3277,14 @@ static int acslinux_path_rename(const struct path *old_dir, struct dentry *old_d
  *	@dentry contains the dentry structure of directory to be removed.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_path(dir);
+    requires valid_dentry(dentry);
+ */
 static int acslinux_path_rmdir(const struct path *dir, struct dentry *dentry)
 {
 	return 0;
 }
+
 
 /** @path_symlink:
  *	Check the permission to create a symbolic link to a file.
@@ -2692,27 +3294,38 @@ static int acslinux_path_rmdir(const struct path *dir, struct dentry *dentry)
  *	@old_name contains the pathname of file.
  *	Return 0 if permission is granted.
  */
+/*@ requires valid_path(dir);
+    requires valid_dentry(dentry);
+    requires valid_str(old_name);
+ */
 static int acslinux_path_symlink(const struct path *dir, struct dentry *dentry,
 				const char *old_name)
 {
 	return 0;
 }
 
+
 /** @path_truncate:
  *	Check permission before truncating a file.
  *	@path contains the path structure for the file.
  *	Return 0 if permission is granted.
+ */
+/*@ requires valid_path(path);
  */
 static int acslinux_path_truncate(const struct path *path)
 {
 	return 0;
 }
 
+
 /** @path_unlink:
  *	Check the permission to remove a hard link to a file.
  *	@dir contains the path structure of parent directory of the file.
  *	@dentry contains the dentry structure for file to be unlinked.
  *	Return 0 if permission is granted.
+ */
+/*@ requires valid_path(dir);
+    requires valid_dentry(dentry);
  */
 static int acslinux_path_unlink(const struct path *dir, struct dentry *dentry)
 {
