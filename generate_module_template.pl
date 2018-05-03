@@ -89,7 +89,7 @@ sub main {
    my %doc = get_informal_lsm_description($hooks);
    my %lsm = get_list_options_structure($hooks);
 
-   my $module = '';
+   my $module = "#include \"acslinux.h\"\n\n";
    my $struct = "static struct security_hook_list acslinux_hooks[] __lsm_ro_after_init = {\n";
    foreach my $ifdef ('GENERAL', sort grep {$_ ne 'GENERAL'} keys %lsm) {
       my %funcs = $lsm{$ifdef}->%*;
