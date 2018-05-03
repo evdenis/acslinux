@@ -99,6 +99,27 @@ sub main {
          my $type = $funcs{$f};
          my $name = 'acslinux_' . $f;
          my $func = $type =~ s/\(\s*\*\s*$f\s*\)/$name/r;
+         my $args_begin = index($func, '(') + 1;
+         my $args_end   = index($func, ')', $args_begin);
+         my $args = substr($func, $args_begin, $args_end - $args_begin);
+         $args =~ s/const|__user//g;
+         $args =~ s/\s+/ /g;
+         $args =~ s/(^\s+|\s+$)//g;
+         my @pre;
+         foreach my $arg (split m/,/, $args) {
+            if ($arg =~ m/struct\h+(?<sname>\w+)\h*\*\h*(?<vname>\w+)/) {
+               my $sname = $+{sname};
+               my $vname = $+{vname};
+               push @pre, "requires valid_$sname($vname);\n";
+            } elsif ($arg =~ m/char\h*\*\h*(?<strname>\w+)/) {
+               my $strname = $+{strname};
+               push @pre, "requires valid_str($strname);\n";
+            }
+         }
+         my $spec = '';
+         if (@pre) {
+            $spec = '/*@ ' . join('    ', @pre) . ' */';
+         }
          $list_hook .= "\tLSM_HOOK_INIT($f, $name),\n";
          my $return = '';
          if ($type =~ m/^int/) {
@@ -106,10 +127,11 @@ sub main {
          }
          $func =~ s/;/\n{\n$return}\n\n/;
          $func = "static " . $func;
+         $func = $spec . "\n" . $func;
          if ($doc{$f}) {
             $func = $doc{$f} . "\n" . $func;
          }
-         $desc .= $func;
+         $desc .= "\n$func";
       }
       unless ($ifdef eq 'GENERAL') {
          $desc = "\n\n#ifdef $ifdef\n\n" . $desc . "#endif /* $ifdef */";
