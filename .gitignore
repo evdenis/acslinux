@@ -3,6 +3,7 @@
 *.ko
 *.cmd
 *.mod.c
+*.pp.c
 .tmp_versions
 modules.order
 *.cache.mk
