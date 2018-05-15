@@ -29,5 +29,5 @@ frama-c -pp-annot -cpp-extra-args " -C -E -x c \
 		-I ${KERNELDIR}/arch/x86/include/generated/uapi/ \
 		-I ${KERNELDIR}/include/uapi/ \
 		-I ${KERNELDIR}/include/generated/uapi/ \
-		-isystem $(gcc -print-search-dirs | grep install | cut -d ':' -f 2)/include/" acslinux_hooks.c
+		-isystem $(gcc -print-search-dirs | grep install | cut -d ':' -f 2)/include/" -jessie acslinux_hooks.c
 

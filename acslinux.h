@@ -8,6 +8,11 @@
 #include <linux/key.h>
 #include <linux/dcache.h>
 #include <linux/fs.h>
+#include <linux/binfmts.h>
+#include <linux/seq_file.h>
+#include <linux/mount.h>
+#include <linux/mm_types.h>
+#include <net/request_sock.h>
 
 struct audit_context;
 struct audit_krule;
@@ -70,7 +75,7 @@ struct xfrm_user_sec_ctx;
  
     predicate valid_super_block(struct super_block *sb) =
           \valid(sb)
-       && valid_dentry(sb->s_root)
+       //&& valid_dentry(sb->s_root)
        && IS_ROOT(sb->s_root);
 
     predicate valid_inode(struct inode *i) =
@@ -80,7 +85,7 @@ struct xfrm_user_sec_ctx;
     predicate valid_dentry(struct dentry *d) =
           \valid(d)
        && \valid(d->d_parent)
-       && (!IS_ROOT(d) ==> valid_dentry(d->d_parent))
+       //&& (!IS_ROOT(d) ==> valid_dentry(d->d_parent))
        && (valid_inode(d->d_inode) || d->d_inode == \null)
        && (valid_super_block(d->d_sb));
 
@@ -93,36 +98,98 @@ struct xfrm_user_sec_ctx;
  */
 
 /*@
-    predicate valid_linux_binprm(struct linux_binprm *b) = \true;
-    predicate valid_user_namespace(struct user_namespace *un) = \true;
-    predicate valid_qstr(struct qstr *s) = \true;
-    predicate valid_vm_area_struct(struct vm_area_struct *va) = \true;
-    predicate valid_fown_struct(struct fown_struct *f) = \true;
-    predicate valid_str(char *s) = \true;
-    predicate valid_path(struct path *p) = \true;
-    predicate valid_iattr(struct iattr *p) = \true;
-    predicate valid_kern_ipc_perm(struct kern_ipc_perm *kip) = \true;
-    predicate valid_msg_msg(struct msg_msg *mm) = \true;
-    predicate valid_security_mnt_opts(struct security_mnt_opts *smo) = \true;
-    predicate valid_seq_file(struct seq_file *sf) = \true;
-    predicate valid_vfsmount(struct vfsmount *vm) = \true;
-    predicate valid_sembuf(struct sembuf *sb) = \true;
-    predicate valid_timespec64(struct timespec64 *ts64) = \true;
-    predicate valid_timezone(struct timezone *tz) = \true;
-    predicate valid_siginfo(struct siginfo *si) = \true;
-    predicate valid_rlimit(struct rlimit *rl) = \true;
-    predicate valid_mm_struct(struct mm_struct *ms) = \true;
-    predicate valid_audit_krule(struct audit_krule *ak) = \true;
-    predicate valid_audit_context(struct audit_context *ac) = \true;
-    predicate valid_key(struct key *k) = \true;
-    predicate valid_request_sock(struct request_sock *rs) = \true;
-    predicate valid_flowi(struct flowi *f) = \true;
-    predicate valid_sctp_endpoint(struct sctp_endpoint *se) = \true;
-    predicate valid_sockaddr(struct sockaddr *sa) = \true;
-    predicate valid_sock(struct sock *sk) = \true;
-    predicate valid_sk_buff(struct sk_buff *sb) = \true;
-    predicate valid_socket(struct socket *s) = \true;
-    predicate valid_msghdr(struct msghdr *mh) = \true;
+    predicate valid_linux_binprm(struct linux_binprm *b) =
+          \valid(b)
+       && valid_mm_struct(b->mm)
+       && valid_file(b->file)
+       && valid_cred(b->cred)
+       && valid_str(b->filename)
+       && valid_str(b->interp);
+    predicate valid_user_namespace(struct user_namespace *un) =
+       \valid(un);
+       //&& valid_user_namespace(un->parent);
+    predicate valid_qstr(struct qstr *s) =
+          \valid(s)
+       && valid_str((char *)s->name);
+    predicate valid_vm_area_struct(struct vm_area_struct *va) =
+          \valid(va)
+       && valid_mm_struct(va->vm_mm);
+    predicate valid_fown_struct(struct fown_struct *f) =
+       \valid(f);
+    predicate valid_str(char *s) =
+       \valid(s);
+    predicate valid_path(struct path *p) =
+          \valid(p)
+       && valid_vfsmount(p->mnt)
+       && valid_dentry(p->dentry);
+    predicate valid_iattr(struct iattr *p) =
+          \valid(p)
+       && valid_file(p->ia_file);
+    predicate valid_kern_ipc_perm(struct kern_ipc_perm *kip) =
+       \valid(kip);
+    predicate valid_msg_msg(struct msg_msg *mm) =
+       \valid(mm);
+    predicate valid_security_mnt_opts(struct security_mnt_opts *smo) =
+          \valid(smo)
+       && \valid(smo->mnt_opts)
+       && \valid(*(smo->mnt_opts))
+       && \valid(smo->mnt_opts_flags);
+    predicate valid_seq_file(struct seq_file *sf) =
+          \valid(sf)
+       && \valid(sf->buf + (0 .. sf->size - 1))
+       && valid_file(sf->file);
+    predicate valid_vfsmount(struct vfsmount *vm) =
+          \valid(vm)
+       && valid_dentry(vm->mnt_root)
+       && valid_super_block(vm->mnt_sb);
+    predicate valid_sembuf(struct sembuf *sb) =
+       \valid(sb);
+    predicate valid_timespec64(struct timespec64 *ts64) =
+       \valid(ts64);
+    predicate valid_timezone(struct timezone *tz) =
+       \valid(tz);
+    predicate valid_siginfo(struct siginfo *si) =
+       \valid(si);
+    predicate valid_rlimit(struct rlimit *rl) =
+       \valid(rl);
+    predicate valid_mm_struct(struct mm_struct *ms) =
+          \valid(ms)
+       && valid_vm_area_struct(ms->mmap)
+#ifdef CONFIG_MEMCG
+       && valid_task_struct(ms->owner)
+#endif
+       && valid_user_namespace(ms->user_ns)
+       && valid_file(ms->exe_file);
+    predicate valid_audit_krule(struct audit_krule *ak) =
+       \valid(ak);
+    predicate valid_audit_context(struct audit_context *ac) =
+       \valid(ac);
+    predicate valid_key(struct key *k) =
+       \valid(k);
+    predicate valid_request_sock(struct request_sock *rs) =
+          \valid(rs)
+       && valid_sock(rs->sock);
+    predicate valid_flowi(struct flowi *f) =
+       \valid(f);
+    predicate valid_sctp_endpoint(struct sctp_endpoint *se) =
+       \valid(se);
+    predicate valid_sockaddr(struct sockaddr *sa) =
+       \valid(sa);
+    predicate valid_sock(struct sock *sk) =
+       \valid(sk);
+    predicate valid_sk_buff(struct sk_buff *sb) =
+          \valid(sb)
+       && valid_sock(sb->sk);
+    predicate valid_socket(struct socket *s) =
+          \valid(s)
+       && valid_sock(s->sk)
+       && valid_file(s->file);
+    predicate valid_msghdr(struct msghdr *mh) =
+          \valid(mh)
+       && \typeof(mh->msg_name) <: \type(char *)
+       && \valid((char *)mh->msg_name + (0 .. mh->msg_namelen - 1))
+       && \typeof(mh->msg_control) <: \type(char *)
+       && \valid((char *)mh->msg_control + (0 .. mh->msg_controllen - 1));
  */
 
 typedef struct seclabel {
