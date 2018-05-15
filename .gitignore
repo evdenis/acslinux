@@ -8,3 +8,4 @@
 modules.order
 *.cache.mk
 Module.symvers
+.frama-c/

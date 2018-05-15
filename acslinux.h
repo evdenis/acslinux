@@ -66,7 +66,7 @@ struct xfrm_user_sec_ctx;
     }
  */
 
-/*@ axiomatic FS {
+/*@ axiomatic FileSystem {
  
     predicate valid_super_block(struct super_block *sb) =
           \valid(sb)
