@@ -1729,9 +1729,15 @@ static int acslinux_setprocattr(const char *name, void *value, size_t size)
  *	@tz contains new timezone
  *	Return 0 if permission is granted.
  */
+#if __BITS_PER_LONG == 64
+/*@ requires valid_timespec(ts);
+    requires valid_timezone(tz);
+ */
+#else
 /*@ requires valid_timespec64(ts);
     requires valid_timezone(tz);
  */
+#endif
 static int acslinux_settime(const struct timespec64 *ts, const struct timezone *tz)
 {
 	return 0;

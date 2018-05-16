@@ -20,7 +20,7 @@ echo "$preconfig" > './preconfig.h'
 gcc -C -E -x c \
 		-include ./preconfig.h \
 		-I . \
-      -D __CHECKER__=1 \
+		-D FRAMAC_WORKAROUND=1 \
 		-I ${KERNELDIR}/arch/x86/include/ \
 		-I ${KERNELDIR}/arch/x86/include/generated/ \
 		-I ${KERNELDIR}/include/ \

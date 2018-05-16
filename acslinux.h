@@ -67,7 +67,9 @@ struct xfrm_user_sec_ctx;
 
 /*@ axiomatic TaskStruct {
     predicate valid_task_struct(struct task_struct *t) =
-       \valid(t);
+          \valid(t)
+       && valid_cred(t->cred)
+       && valid_cred(t->real_cred);
     }
  */
 
@@ -100,7 +102,7 @@ struct xfrm_user_sec_ctx;
 /*@
     predicate valid_linux_binprm(struct linux_binprm *b) =
           \valid(b)
-       && valid_mm_struct(b->mm)
+       //&& valid_mm_struct(b->mm)
        && valid_file(b->file)
        && valid_cred(b->cred)
        && valid_str(b->filename)
@@ -112,8 +114,8 @@ struct xfrm_user_sec_ctx;
           \valid(s)
        && valid_str((char *)s->name);
     predicate valid_vm_area_struct(struct vm_area_struct *va) =
-          \valid(va)
-       && valid_mm_struct(va->vm_mm);
+          \valid(va);
+       //&& valid_mm_struct(va->vm_mm);
     predicate valid_fown_struct(struct fown_struct *f) =
        \valid(f);
     predicate valid_str(char *s) =
@@ -146,6 +148,8 @@ struct xfrm_user_sec_ctx;
        \valid(sb);
     predicate valid_timespec64(struct timespec64 *ts64) =
        \valid(ts64);
+    predicate valid_timespec(struct timespec *ts) =
+       \valid(ts);
     predicate valid_timezone(struct timezone *tz) =
        \valid(tz);
     predicate valid_siginfo(struct siginfo *si) =
@@ -168,7 +172,7 @@ struct xfrm_user_sec_ctx;
        \valid(k);
     predicate valid_request_sock(struct request_sock *rs) =
           \valid(rs)
-       && valid_sock(rs->sock);
+       && valid_sock(rs->sk);
     predicate valid_flowi(struct flowi *f) =
        \valid(f);
     predicate valid_sctp_endpoint(struct sctp_endpoint *se) =
