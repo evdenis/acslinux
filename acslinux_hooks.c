@@ -74,6 +74,8 @@ static int acslinux_binder_transfer_file(struct task_struct *from,
  *	Return 0 if the hook is successful and permission is granted.
  */
 /*@ requires valid_linux_binprm(bprm);
+    //requires valid argv;
+    //requires valid envp;
  */
 static int acslinux_bprm_check_security(struct linux_binprm *bprm)
 {
@@ -90,6 +92,7 @@ static int acslinux_bprm_check_security(struct linux_binprm *bprm)
  *	state.  This is called immediately after commit_creds().
  */
 /*@ requires valid_linux_binprm(bprm);
+    requires bprm->cred == current_task->real_cred;
  */
 static void acslinux_bprm_committed_creds(struct linux_binprm *bprm)
 {
@@ -169,6 +172,7 @@ static int acslinux_capable(const struct cred *cred, struct user_namespace *ns,
  *	Return 0 if the capability sets were successfully obtained.
  */
 /*@ requires valid_task_struct(target);
+    requires valid_task_struct(current_task);
  */
 static int acslinux_capget(struct task_struct *target, kernel_cap_t *effective,
 			kernel_cap_t *inheritable, kernel_cap_t *permitted)
@@ -189,6 +193,11 @@ static int acslinux_capget(struct task_struct *target, kernel_cap_t *effective,
  */
 /*@ requires valid_cred(new);
     requires valid_cred(old);
+    requires \valid(effective);
+    requires \valid(inherited);
+    requires \valid(permitted);
+    requires valid_task_struct(current_task);
+    requires old == current_task->real_cred;
  */
 static int acslinux_capset(struct cred *new, const struct cred *old,
 			const kernel_cap_t *effective,
@@ -230,6 +239,9 @@ static void acslinux_cred_free(struct cred *cred)
  *	In case of failure, @secid will be set to zero.
  */
 /*@ requires valid_cred(c);
+    requires \valid(secid);
+    requires *secid == 0;
+    //assigns secid;
  */
 static void acslinux_cred_getsecid(const struct cred *c, u32 *secid)
 {
@@ -244,6 +256,8 @@ static void acslinux_cred_getsecid(const struct cred *c, u32 *secid)
  */
 /*@ requires valid_cred(new);
     requires valid_cred(old);
+    // assigns *new;
+    // ensures valid_cred(new);
  */
 static int acslinux_cred_prepare(struct cred *new, const struct cred *old,
 				gfp_t gfp)
@@ -288,6 +302,8 @@ static void acslinux_d_instantiate(struct dentry *dentry, struct inode *inode)
     requires valid_qstr(name);
     requires valid_cred(old);
     requires valid_cred(new);
+
+    //assigns *new;
  */
 static int acslinux_dentry_create_files_as(struct dentry *dentry, int mode,
 					struct qstr *name,
@@ -309,6 +325,8 @@ static int acslinux_dentry_create_files_as(struct dentry *dentry, int mode,
  */
 /*@ requires valid_dentry(dentry);
     requires valid_qstr(name);
+    requires \valid(ctx);
+    requires \valid(ctxlen);
  */
 static int acslinux_dentry_init_security(struct dentry *dentry, int mode,
 					const struct qstr *name, void **ctx,
@@ -358,6 +376,9 @@ static int acslinux_file_fcntl(struct file *file, unsigned int cmd,
  *	@file contains the file structure being modified.
  */
 /*@ requires valid_file(file);
+    assing (seclabel_t *)file->security;
+    frees (seclabel_t *)file->security;
+    ensures (seclabel_t *)file->security == \null;
  */
 static void acslinux_file_free_security(struct file *file)
 {
@@ -392,6 +413,7 @@ static int acslinux_file_ioctl(struct file *file, unsigned int cmd,
  *	Return 0 if permission is granted.
  */
 /*@ requires valid_file(file);
+    requires cmd == F_RDLCK || cmd == F_WRLCK;
  */
 static int acslinux_file_lock(struct file *file, unsigned int cmd)
 {
@@ -505,6 +527,7 @@ static void acslinux_file_set_fowner(struct file *file)
 
 /*@ requires valid_task_struct(p);
     requires valid_str(name);
+    requires \valid(value);
  */
 static int acslinux_getprocattr(struct task_struct *p, char *name, char **value)
 {
@@ -520,6 +543,7 @@ static int acslinux_getprocattr(struct task_struct *p, char *name, char **value)
  *	Return 0 if operation was successful.
  */
 /*@ requires valid_inode(inode);
+    requires inode->i_security == \null;
  */
 static int acslinux_inode_alloc_security(struct inode *inode)
 {
@@ -538,6 +562,9 @@ static int acslinux_inode_alloc_security(struct inode *inode)
  *	Returns 0 on success or a negative error code on error.
  */
 /*@ requires valid_dentry(src);
+    requires \valid(new);
+    assigns *new;
+    ensures valid_cred(*new);
  */
 static int acslinux_inode_copy_up(struct dentry *src, struct cred **new)
 {
@@ -555,6 +582,10 @@ static int acslinux_inode_copy_up(struct dentry *src, struct cred **new)
  *	and writing the xattrs as this hook is merely a filter.
  */
 /*@ requires valid_str(name);
+    ensures \result == 0
+         || \result == 1
+         || \result == -EOPNOTSUPP
+         || \result < 0;
  */
 static int acslinux_inode_copy_up_xattr(const char *name)
 {
@@ -602,6 +633,9 @@ static int acslinux_inode_follow_link(struct dentry *dentry, struct inode *inode
  *	NULL.
  */
 /*@ requires valid_inode(inode);
+    assigns (seclabel_t *)inode->i_security;
+    frees (seclabel_t *)inode->i_security;
+    ensures inode->i_security == \null;
  */
 static void acslinux_inode_free_security(struct inode *inode)
 {
@@ -626,6 +660,11 @@ static int acslinux_inode_getattr(const struct path *path)
  *	context for the given @inode.
  */
 /*@ requires valid_inode(inode);
+    requires \typeof(ctx) <: \type(char *);
+    requires \valid(ctx);
+    requires \valid(ctxlen);
+    assigns *ctxlen, *ctx;
+    ensures \valid(ctx + (0 .. *ctxlen - 1));
  */
 static int acslinux_inode_getsecctx(struct inode *inode, void **ctx, u32 *ctxlen)
 {
@@ -640,6 +679,8 @@ static int acslinux_inode_getsecctx(struct inode *inode, void **ctx, u32 *ctxlen
  *	In case of failure, @secid will be set to zero.
  */
 /*@ requires valid_inode(inode);
+    requires \valid(secid);
+    assigns *secid;
  */
 static void acslinux_inode_getsecid(struct inode *inode, u32 *secid)
 {
@@ -656,6 +697,9 @@ static void acslinux_inode_getsecid(struct inode *inode, u32 *secid)
  */
 /*@ requires valid_inode(inode);
     requires valid_str(name);
+    requires \typeof(buffer) <: \type(char **);
+    requires buffer == \null || \valid((char **)buffer);
+    requires alloc => \valid((char **)buffer);
  */
 static int acslinux_inode_getsecurity(struct inode *inode, const char *name,
 					void **buffer, bool alloc)
@@ -702,6 +746,19 @@ static int acslinux_inode_getxattr(struct dentry *dentry, const char *name)
 /*@ requires valid_inode(inode);
     requires valid_inode(dir);
     requires valid_qstr(qstr);
+    requires \valid(name);
+    requires \valid(len);
+    requires \typeof(value) <: \type(char **);
+    requires \valid((char **)value);
+
+    assigns *name, *((char **)value), *len;
+    allocates *name, *value;
+
+    ensures \result == 0
+         || \result == -EOPNOTSUPP;
+
+    ensures \result == 0 ==> valid_str(*name);
+    ensures \result == 0 ==> \valid(*(char **)value + (0 .. *len - 1));
  */
 static int acslinux_inode_init_security(struct inode *inode, struct inode *dir,
 					const struct qstr *qstr,
@@ -766,7 +823,8 @@ static int acslinux_inode_link(struct dentry *old_dentry, struct inode *dir,
  *	Returns number of bytes used/required on success.
  */
 /*@ requires valid_inode(inode);
-    requires valid_str(buffer);
+    requires buffer == \null || \valid(buffer + (0 .. buffer_size - 1));
+    assigns buffer[0 .. buffer_size - 1];
  */
 static int acslinux_inode_listsecurity(struct inode *inode, char *buffer,
 					size_t buffer_size)
@@ -852,6 +910,8 @@ static int acslinux_inode_need_killpriv(struct dentry *dentry)
  *	file's attributes to the client.
  */
 /*@ requires valid_inode(inode);
+    requires \typeof(ctx) <: \type(char *);
+    requires \valid(ctx + (0 .. ctxlen - 1));
  */
 static int acslinux_inode_notifysecctx(struct inode *inode, void *ctx, u32 ctxlen)
 {
@@ -884,6 +944,8 @@ static int acslinux_inode_permission(struct inode *inode, int mask)
  */
 /*@ requires valid_dentry(dentry);
     requires valid_str(name);
+    requires \typeof(value) <: \type(char *);
+    requires \valid((char *)value + (0.. size - 1));
  */
 static void acslinux_inode_post_setxattr(struct dentry *dentry, const char *name,
 					const void *value, size_t size,
@@ -984,6 +1046,8 @@ static int acslinux_inode_setattr(struct dentry *dentry, struct iattr *attr)
  *	operation.
  */
 /*@ requires valid_dentry(dentry);
+    requires \typeof(ctx) <: \type(char *);
+    requires \valid((char *)ctx + (0 .. ctxlen - 1));
  */
 static int acslinux_inode_setsecctx(struct dentry *dentry, void *ctx, u32 ctxlen)
 {
@@ -1001,6 +1065,11 @@ static int acslinux_inode_setsecctx(struct dentry *dentry, void *ctx, u32 ctxlen
  */
 /*@ requires valid_inode(inode);
     requires valid_str(name);
+    requires \typeof(value) <: \type(char *);
+    requires \valid((char *)value + (0 .. size - 1));
+    requires flags == 0
+          || flags == XATTR_CREATE
+          || flags == XATTR_REPLACE;
  */
 static int acslinux_inode_setsecurity(struct inode *inode, const char *name,
 					const void *value, size_t size,
@@ -1017,6 +1086,8 @@ static int acslinux_inode_setsecurity(struct inode *inode, const char *name,
  */
 /*@ requires valid_dentry(dentry);
     requires valid_str(name);
+    requires \typeof(value) <: \type(char *);
+    requires \valid((char *)value + (0 .. size - 1));
  */
 static int acslinux_inode_setxattr(struct dentry *dentry, const char *name,
 				const void *value, size_t size, int flags)
@@ -1066,6 +1137,8 @@ static int acslinux_inode_unlink(struct inode *dir, struct dentry *dentry)
  *	In case of failure, @secid will be set to zero.
  */
 /*@ requires valid_kern_ipc_perm(ipcp);
+    requires \valid(secid);
+    assigns *secid;
  */
 static void acslinux_ipc_getsecid(struct kern_ipc_perm *ipcp, u32 *secid)
 {

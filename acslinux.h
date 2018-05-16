@@ -61,7 +61,11 @@ struct xfrm_user_sec_ctx;
 
 /*@ axiomatic Cred {
     predicate valid_cred(struct cred *c) =
-       \valid(c);
+          \valid(c)
+       && \offset_min(c) == 0
+       && \typeof(c->security) <: \type(seclabel_t *)
+       && (c->security == \null || valid_seclabel((seclabel_t *)c->security))
+       && valid_user_namespace(c->user_ns);
     }
  */
 
@@ -69,7 +73,16 @@ struct xfrm_user_sec_ctx;
     predicate valid_task_struct(struct task_struct *t) =
           \valid(t)
        && valid_cred(t->cred)
-       && valid_cred(t->real_cred);
+       && valid_cred(t->real_cred)
+       && (t->ptracer_cred == \null || valid_cred(t->ptracer_cred))
+       && valid_mm_struct(t->mm)
+       && valid_mm_struct(t->active_mm)
+       && (t->parent == \null || valid_task_struct(t->parent))
+       && (t->real_parent == \null || valid_task_struct(t->real_parent))
+#ifdef CONFIG_MMU
+       && (t->oom_reaper_list == \null || valid_task_struct(t->oom_reaper_list))
+#endif
+       && (t->audit_context == \null || valid_audit_context(t->audit_context));
     }
  */
 
@@ -77,22 +90,26 @@ struct xfrm_user_sec_ctx;
  
     predicate valid_super_block(struct super_block *sb) =
           \valid(sb)
-       //&& valid_dentry(sb->s_root)
+       && valid_dentry(sb->s_root)
        && IS_ROOT(sb->s_root);
 
     predicate valid_inode(struct inode *i) =
           \valid(i)
+       && \typeof(i->i_security) <: \type(seclabel_t *)
+       && (i->i_security == \null || valid_seclabel((seclabel_t *)i->i_security))
        && valid_super_block(i->i_sb);
 
     predicate valid_dentry(struct dentry *d) =
           \valid(d)
        && \valid(d->d_parent)
-       //&& (!IS_ROOT(d) ==> valid_dentry(d->d_parent))
+       && (!IS_ROOT(d) ==> valid_dentry(d->d_parent))
        && (valid_inode(d->d_inode) || d->d_inode == \null)
        && (valid_super_block(d->d_sb));
 
     predicate valid_file(struct file *f) =
           \valid(f)
+       && \typeof(f->security) <: \type(seclabel_t *)
+       && (f->security == \null || valid_seclabel(f->security))
        && (\valid(f->f_inode) || f->f_inode == \null)
        && valid_cred(f->f_cred);
 
@@ -194,6 +211,13 @@ struct xfrm_user_sec_ctx;
        && \valid((char *)mh->msg_name + (0 .. mh->msg_namelen - 1))
        && \typeof(mh->msg_control) <: \type(char *)
        && \valid((char *)mh->msg_control + (0 .. mh->msg_controllen - 1));
+ */
+
+/*@ axiomatic SecLabel {
+    predicate valid_seclabel(seclabel_t *s) =
+          \valid(s)
+       && \offset_min(s) == 0;
+    }
  */
 
 typedef struct seclabel {
