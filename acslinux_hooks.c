@@ -1199,6 +1199,7 @@ static int acslinux_kernel_act_as(struct cred *new, u32 secid)
  */
 /*@ requires valid_cred(new);
     requires valid_inode(inode);
+    // TODO: current task nominated inode?
  */
 static int acslinux_kernel_create_files_as(struct cred *new, struct inode *inode)
 {
@@ -1231,6 +1232,7 @@ static int acslinux_kernel_module_request(char *kmod_name)
  */
 /*@ requires valid_file(file);
     requires valid_str(buf);
+    requires \valid(buf + (0 .. size - 1));
  */
 static int acslinux_kernel_post_read_file(struct file *file, char *buf, loff_t size,
 				     enum kernel_read_file_id id)
@@ -1278,6 +1280,7 @@ static int acslinux_mmap_file(struct file *file, unsigned long reqprot,
  *	Return 0 if operation was successful and permission is granted.
  */
 /*@ requires valid_msg_msg(msg);
+    requires msg->security == \null;
  */
 static int acslinux_msg_msg_alloc_security(struct msg_msg *msg)
 {
@@ -1290,6 +1293,9 @@ static int acslinux_msg_msg_alloc_security(struct msg_msg *msg)
  *	@msg contains the message structure to be modified.
  */
 /*@ requires valid_msg_msg(msg);
+    assigns msg->security;
+    frees msg->security;
+    ensures msg->security == \null;
  */
 static void acslinux_msg_msg_free_security(struct msg_msg *msg)
 {
@@ -1304,6 +1310,8 @@ static void acslinux_msg_msg_free_security(struct msg_msg *msg)
  *	Return 0 if operation was successful and permission is granted.
  */
 /*@ requires valid_kern_ipc_perm(msq);
+    requires msg->q_perm.security == \null;
+    allocates msg->q_perm.security;
  */
 static int acslinux_msg_queue_alloc_security(struct kern_ipc_perm *msq)
 {
@@ -1333,6 +1341,9 @@ static int acslinux_msg_queue_associate(struct kern_ipc_perm *msq, int msqflg)
  *	@msq contains the message queue structure to be modified.
  */
 /*@ requires valid_kern_ipc_perm(msq);
+    assigns msg->q_perm.security;
+    frees msg->q_perm.security;
+    ensures msg->q_perm.security == \null;
  */
 static void acslinux_msg_queue_free_security(struct kern_ipc_perm *msq)
 {
@@ -1347,7 +1358,8 @@ static void acslinux_msg_queue_free_security(struct kern_ipc_perm *msq)
  *	@cmd contains the operation to be performed.
  *	Return 0 if permission is granted.
  */
-/*@ requires valid_kern_ipc_perm(msq);
+/*@ requires msg == \null || valid_kern_ipc_perm(msq);
+    requires (cmd == MSG_INFO || IPC_INFO) && msg == \null;
  */
 static int acslinux_msg_queue_msgctl(struct kern_ipc_perm *msq, int cmd)
 {

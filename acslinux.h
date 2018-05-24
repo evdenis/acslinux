@@ -147,7 +147,9 @@ struct xfrm_user_sec_ctx;
     predicate valid_kern_ipc_perm(struct kern_ipc_perm *kip) =
        \valid(kip);
     predicate valid_msg_msg(struct msg_msg *mm) =
-       \valid(mm);
+          \valid(mm)
+       && \typeof(mm->security) <: \type(seclabel_t *)
+       && (mm->security == \null || valid_seclabel(mm->security));
     predicate valid_security_mnt_opts(struct security_mnt_opts *smo) =
           \valid(smo)
        && \valid(smo->mnt_opts)
