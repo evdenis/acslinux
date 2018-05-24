@@ -13,6 +13,9 @@
 #include <linux/mount.h>
 #include <linux/mm_types.h>
 #include <net/request_sock.h>
+#include <linux/msg.h>
+#include <linux/bpf.h>
+#include <net/xfrm.h>
 
 struct audit_context;
 struct audit_krule;
@@ -59,13 +62,24 @@ struct xfrm_sec_ctx;
 struct xfrm_state;
 struct xfrm_user_sec_ctx;
 
+typedef struct seclabel {
+   //TODO add refcnt for secmark
+} seclabel_t;
+
+// TODO:
+// add implementation for security alloc functions
+// add implementation for security free functions
+// add implementation for secid functions?
+// add specifications for validation of secid?
+
 /*@ axiomatic Cred {
     predicate valid_cred(struct cred *c) =
           \valid(c)
        && \offset_min(c) == 0
        && \typeof(c->security) <: \type(seclabel_t *)
        && (c->security == \null || valid_seclabel((seclabel_t *)c->security))
-       && valid_user_namespace(c->user_ns);
+       && valid_user_namespace(c->user_ns)
+       && 0 < c->usage.counter;
     }
  */
 
@@ -90,6 +104,8 @@ struct xfrm_user_sec_ctx;
  
     predicate valid_super_block(struct super_block *sb) =
           \valid(sb)
+       && \typeof(sb->s_security) <: \type(seclabel_t *)
+       && (sb->s_security == \null || valid_seclabel((seclabel_t *)sb->s_security))
        && valid_dentry(sb->s_root)
        && IS_ROOT(sb->s_root);
 
@@ -108,8 +124,8 @@ struct xfrm_user_sec_ctx;
 
     predicate valid_file(struct file *f) =
           \valid(f)
-       && \typeof(f->security) <: \type(seclabel_t *)
-       && (f->security == \null || valid_seclabel(f->security))
+       && \typeof(f->f_security) <: \type(seclabel_t *)
+       && (f->f_security == \null || valid_seclabel((seclabel_t *)f->f_security))
        && (\valid(f->f_inode) || f->f_inode == \null)
        && valid_cred(f->f_cred);
 
@@ -136,7 +152,8 @@ struct xfrm_user_sec_ctx;
     predicate valid_fown_struct(struct fown_struct *f) =
        \valid(f);
     predicate valid_str(char *s) =
-       \valid(s);
+       \valid(s); // TODO:
+    logic size_t strlen(char *s) = 0; // TODO;
     predicate valid_path(struct path *p) =
           \valid(p)
        && valid_vfsmount(p->mnt)
@@ -149,7 +166,7 @@ struct xfrm_user_sec_ctx;
     predicate valid_msg_msg(struct msg_msg *mm) =
           \valid(mm)
        && \typeof(mm->security) <: \type(seclabel_t *)
-       && (mm->security == \null || valid_seclabel(mm->security));
+       && (mm->security == \null || valid_seclabel((seclabel_t *)mm->security));
     predicate valid_security_mnt_opts(struct security_mnt_opts *smo) =
           \valid(smo)
        && \valid(smo->mnt_opts)
@@ -213,6 +230,28 @@ struct xfrm_user_sec_ctx;
        && \valid((char *)mh->msg_name + (0 .. mh->msg_namelen - 1))
        && \typeof(mh->msg_control) <: \type(char *)
        && \valid((char *)mh->msg_control + (0 .. mh->msg_controllen - 1));
+    predicate valid_bpf_map(struct bpf_map *bm) =
+          \valid(bm)
+       && \typeof(bm->security) <: \type(seclabel_t *)
+       && (bm->security == \null || valid_seclabel((seclabel_t *)bm->security));
+    predicate valid_bpf_prog(struct bpf_prog *bp) =
+          \valid(bp)
+       && valid_bpf_prog_aux(bp->aux);
+    predicate valid_bpf_prog_aux(struct bpf_prog_aux *bpa) =
+          \valid(bpa)
+       && valid_bpf_prog(bpa->prog)
+       && \typeof(bpa->security) <: \type(seclabel_t *)
+       && (bpa->security == \null || valid_seclabel((seclabel_t *)bpa->security));
+    predicate valid_xfrm_user_sec_ctx(struct xfrm_user_sec_ctx *ctx) =
+       \valid(ctx);
+    predicate valid_xfrm_sec_ctx(struct xfrm_sec_ctx *ctx) =
+       \valid(ctx);
+    predicate valid_xfrm_state(struct xfrm_state *st) =
+          \valid(st)
+       && valid_xfrm_sec_ctx(st->security);
+    predicate valid_xfrm_policy(struct xfrm_policy *xp) =
+          \valid(xp)
+       && valid_xfrm_sec_ctx(xp->security);
  */
 
 /*@ axiomatic SecLabel {
@@ -221,8 +260,5 @@ struct xfrm_user_sec_ctx;
        && \offset_min(s) == 0;
     }
  */
-
-typedef struct seclabel {
-} seclabel_t;
 
 #endif

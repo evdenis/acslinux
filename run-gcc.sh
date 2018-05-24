@@ -17,7 +17,7 @@ trap "rm -f ./preconfig.h" EXIT
 echo "$preconfig" > './preconfig.h'
 
 
-gcc -C -E -x c \
+gcc -C -CC -E -x c \
 		-include ./preconfig.h \
 		-I . \
 		-D FRAMAC_WORKAROUND=1 \

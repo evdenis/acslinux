@@ -1,4 +1,40 @@
 #include "acslinux.h"
+#include <uapi/linux/xattr.h>
+
+
+#define RAW_SECLABEL_ALLOC(sl)                    \
+   requires  \typeof(sl) <: \type(seclabel_t **); \
+   requires  \valid((seclabel_t **)sl);           \
+   requires  *(seclabel_t **)sl == \null;         \
+   allocates *sl;                                 \
+   assigns   *sl;                                 \
+   ensures   valid_seclabel(*(seclabel_t **)sl)
+
+#define RAW_SECLABEL_FREE(sl)                   \
+   requires \typeof(sl) <: \type(seclabel_t *); \
+   frees    sl
+
+
+#define SECLABEL_ALLOC(valid,var,field)                  \
+   requires  valid(var);                                 \
+   requires  \typeof(var->field) <: \type(seclabel_t *); \
+   requires  var->field == \null;                        \
+   allocates var->field;                                 \
+   assigns   var->field;                                 \
+   ensures   valid_seclabel((seclabel_t *)var->field)
+
+#define SECLABEL_FREE(valid,var,field)         \
+   requires valid(var);                        \
+   assigns  *((seclabel_t *) var->field);      \
+   frees    (seclabel_t *) var->field;         \
+   ensures  (seclabel_t *) var->field == \null
+
+
+#define UPDATE_SECLABEL(sl)                     \
+   requires \typeof(sl) <: \type(seclabel_t *); \
+   requires valid_seclabel((seclabel_t *)sl);   \
+   assigns *(seclabel_t *)sl;                   \
+   ensures valid_seclabel((seclabel_t *)sl)
 
 
 /** @binder_set_context_mgr:
@@ -194,7 +230,7 @@ static int acslinux_capget(struct task_struct *target, kernel_cap_t *effective,
 /*@ requires valid_cred(new);
     requires valid_cred(old);
     requires \valid(effective);
-    requires \valid(inherited);
+    requires \valid(inheritable);
     requires \valid(permitted);
     requires valid_task_struct(current_task);
     requires old == current_task->real_cred;
@@ -343,7 +379,7 @@ static int acslinux_dentry_init_security(struct dentry *dentry, int mode,
  *	@file contains the file structure to secure.
  *	Return 0 if the hook is successful and permission is granted.
  */
-/*@ requires valid_file(file);
+/*@ SECLABEL_ALLOC(valid_file,file,f_security);
  */
 static int acslinux_file_alloc_security(struct file *file)
 {
@@ -370,15 +406,12 @@ static int acslinux_file_fcntl(struct file *file, unsigned int cmd,
 	return 0;
 }
 
-
 /** @file_free_security:
  *	Deallocate and free any security structures stored in file->f_security.
  *	@file contains the file structure being modified.
  */
-/*@ requires valid_file(file);
-    assing (seclabel_t *)file->security;
-    frees (seclabel_t *)file->security;
-    ensures (seclabel_t *)file->security == \null;
+
+/*@ SECLABEL_FREE(valid_file,file,f_security);
  */
 static void acslinux_file_free_security(struct file *file)
 {
@@ -542,8 +575,7 @@ static int acslinux_getprocattr(struct task_struct *p, char *name, char **value)
  *	@inode contains the inode structure.
  *	Return 0 if operation was successful.
  */
-/*@ requires valid_inode(inode);
-    requires inode->i_security == \null;
+/*@ SECLABEL_ALLOC(valid_inode,inode,i_security);
  */
 static int acslinux_inode_alloc_security(struct inode *inode)
 {
@@ -632,10 +664,7 @@ static int acslinux_inode_follow_link(struct dentry *dentry, struct inode *inode
  *	Deallocate the inode security structure and set @inode->i_security to
  *	NULL.
  */
-/*@ requires valid_inode(inode);
-    assigns (seclabel_t *)inode->i_security;
-    frees (seclabel_t *)inode->i_security;
-    ensures inode->i_security == \null;
+/*@ SECLABEL_FREE(valid_inode,inode,i_security);
  */
 static void acslinux_inode_free_security(struct inode *inode)
 {
@@ -699,7 +728,7 @@ static void acslinux_inode_getsecid(struct inode *inode, u32 *secid)
     requires valid_str(name);
     requires \typeof(buffer) <: \type(char **);
     requires buffer == \null || \valid((char **)buffer);
-    requires alloc => \valid((char **)buffer);
+    requires alloc ==> \valid((char **)buffer);
  */
 static int acslinux_inode_getsecurity(struct inode *inode, const char *name,
 					void **buffer, bool alloc)
@@ -911,7 +940,7 @@ static int acslinux_inode_need_killpriv(struct dentry *dentry)
  */
 /*@ requires valid_inode(inode);
     requires \typeof(ctx) <: \type(char *);
-    requires \valid(ctx + (0 .. ctxlen - 1));
+    requires \valid((char *)ctx + (0 .. ctxlen - 1));
  */
 static int acslinux_inode_notifysecctx(struct inode *inode, void *ctx, u32 ctxlen)
 {
@@ -1279,8 +1308,7 @@ static int acslinux_mmap_file(struct file *file, unsigned long reqprot,
  *	@msg contains the message structure to be modified.
  *	Return 0 if operation was successful and permission is granted.
  */
-/*@ requires valid_msg_msg(msg);
-    requires msg->security == \null;
+/*@ SECLABEL_ALLOC(valid_msg_msg,msg,security);
  */
 static int acslinux_msg_msg_alloc_security(struct msg_msg *msg)
 {
@@ -1292,10 +1320,7 @@ static int acslinux_msg_msg_alloc_security(struct msg_msg *msg)
  *	Deallocate the security structure for this message.
  *	@msg contains the message structure to be modified.
  */
-/*@ requires valid_msg_msg(msg);
-    assigns msg->security;
-    frees msg->security;
-    ensures msg->security == \null;
+/*@ SECLABEL_FREE(valid_msg_msg,msg,security);
  */
 static void acslinux_msg_msg_free_security(struct msg_msg *msg)
 {
@@ -1309,9 +1334,7 @@ static void acslinux_msg_msg_free_security(struct msg_msg *msg)
  *	@msq contains the message queue structure to be modified.
  *	Return 0 if operation was successful and permission is granted.
  */
-/*@ requires valid_kern_ipc_perm(msq);
-    requires msg->q_perm.security == \null;
-    allocates msg->q_perm.security;
+/*@ SECLABEL_ALLOC(valid_kern_ipc_perm,msq,security);
  */
 static int acslinux_msg_queue_alloc_security(struct kern_ipc_perm *msq)
 {
@@ -1340,10 +1363,7 @@ static int acslinux_msg_queue_associate(struct kern_ipc_perm *msq, int msqflg)
  *	Deallocate security structure for this message queue.
  *	@msq contains the message queue structure to be modified.
  */
-/*@ requires valid_kern_ipc_perm(msq);
-    assigns msg->q_perm.security;
-    frees msg->q_perm.security;
-    ensures msg->q_perm.security == \null;
+/*@ SECLABEL_FREE(valid_kern_ipc_perm,msq,security);
  */
 static void acslinux_msg_queue_free_security(struct kern_ipc_perm *msq)
 {
@@ -1358,8 +1378,8 @@ static void acslinux_msg_queue_free_security(struct kern_ipc_perm *msq)
  *	@cmd contains the operation to be performed.
  *	Return 0 if permission is granted.
  */
-/*@ requires msg == \null || valid_kern_ipc_perm(msq);
-    requires (cmd == MSG_INFO || IPC_INFO) && msg == \null;
+/*@ requires msq == \null || valid_kern_ipc_perm(msq);
+    requires (cmd == MSG_INFO || IPC_INFO) && msq == \null;
  */
 static int acslinux_msg_queue_msgctl(struct kern_ipc_perm *msq, int cmd)
 {
@@ -1442,6 +1462,7 @@ static int acslinux_netlink_send(struct sock *sk, struct sk_buff *skb)
  *	Return 0 if permission is granted.
  */
 /*@ requires valid_task_struct(child);
+    requires valid_task_struct(current_task);
  */
 static int acslinux_ptrace_access_check(struct task_struct *child,
 					unsigned int mode)
@@ -1458,6 +1479,7 @@ static int acslinux_ptrace_access_check(struct task_struct *child,
  *	Return 0 if permission is granted.
  */
 /*@ requires valid_task_struct(parent);
+    requires valid_task_struct(current_task);
  */
 static int acslinux_ptrace_traceme(struct task_struct *parent)
 {
@@ -1486,7 +1508,7 @@ static int acslinux_quotactl(int cmds, int type, int id, struct super_block *sb)
  *	@secdata contains the security context.
  *	@seclen contains the length of the security context.
  */
-/*@ requires valid_str(secdata);
+/*@ requires \valid(secdata + (0 .. seclen - 1));
  */
 static void acslinux_release_secctx(char *secdata, u32 seclen)
 {
@@ -1500,7 +1522,7 @@ static void acslinux_release_secctx(char *secdata, u32 seclen)
  *	@sb contains the super_block structure to be modified.
  *	Return 0 if operation was successful.
  */
-/*@ requires valid_super_block(sb);
+/*@ SECLABEL_ALLOC(valid_super_block,sb,s_security);
  */
 static int acslinux_sb_alloc_security(struct super_block *sb)
 {
@@ -1549,7 +1571,7 @@ static int acslinux_sb_copy_data(char *orig, char *copy)
  *	Deallocate and clear the sb->s_security field.
  *	@sb contains the super_block structure to be modified.
  */
-/*@ requires valid_super_block(sb);
+/*@ SECLABEL_FREE(valid_super_block,sb,s_security);
  */
 static void acslinux_sb_free_security(struct super_block *sb)
 {
@@ -1578,7 +1600,7 @@ static int acslinux_sb_kern_mount(struct super_block *sb, int flags, void *data)
  *	@data contains the filesystem-specific data.
  *	Return 0 if permission is granted.
  */
-/*@ requires valid_str(dev_name);
+/*@ requires valid_str(dev_name) && !(flags & MS_REMOUNT);
     requires valid_path(path);
     requires valid_str(type);
  */
@@ -1641,6 +1663,7 @@ static int acslinux_sb_remount(struct super_block *sb, void *data)
  */
 /*@ requires valid_super_block(sb);
     requires valid_security_mnt_opts(opts);
+    requires set_kern_flags == \null || \valid(set_kern_flags);
  */
 static int acslinux_sb_set_mnt_opts(struct super_block *sb,
 				struct security_mnt_opts *opts,
@@ -1693,7 +1716,8 @@ static int acslinux_sb_umount(struct vfsmount *mnt, int flags)
  *	@secid contains the pointer to the generated security ID.
  *	@secdata contains the security context.
  */
-/*@ requires valid_str(secdata);
+/*@ requires \valid(secdata + (0 .. seclen - 1));
+    requires \valid(secid);
  */
 static int acslinux_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid)
 {
@@ -1713,11 +1737,15 @@ static int acslinux_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid)
  *	@seclen pointer which contains the length of the data
  */
 
+/*@ requires \valid(seclen);
+    requires secdata == \null || \valid(secdata);
+    allocates *secdata, seclen;
+    assigns *seclen, *secdata;
+ */
 static int acslinux_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
 {
 	return 0;
 }
-
 
 /** @sem_alloc_security:
  *	Allocate and attach a security structure to the sma->sem_perm.security
@@ -1726,7 +1754,7 @@ static int acslinux_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
  *	@sma contains the semaphore structure
  *	Return 0 if operation was successful and permission is granted.
  */
-/*@ requires valid_kern_ipc_perm(sma);
+/*@ SECLABEL_ALLOC(valid_kern_ipc_perm,sma,security);
  */
 static int acslinux_sem_alloc_security(struct kern_ipc_perm *sma)
 {
@@ -1755,7 +1783,7 @@ static int acslinux_sem_associate(struct kern_ipc_perm *sma, int semflg)
  *	deallocate security struct for this semaphore
  *	@sma contains the semaphore structure.
  */
-/*@ requires valid_kern_ipc_perm(sma);
+/*@ SECLABEL_FREE(valid_kern_ipc_perm,sma,security);
  */
 static void acslinux_sem_free_security(struct kern_ipc_perm *sma)
 {
@@ -1770,7 +1798,8 @@ static void acslinux_sem_free_security(struct kern_ipc_perm *sma)
  *	@cmd contains the operation to be performed.
  *	Return 0 if permission is granted.
  */
-/*@ requires valid_kern_ipc_perm(sma);
+/*@ requires sma == \null || valid_kern_ipc_perm(sma);
+    requires sma == \null && (cmd == IPC_INFO || cmd == SEM_INFO);
  */
 static int acslinux_sem_semctl(struct kern_ipc_perm *sma, int cmd)
 {
@@ -1799,6 +1828,8 @@ static int acslinux_sem_semop(struct kern_ipc_perm *sma, struct sembuf *sops,
 
 
 /*@ requires valid_str(name);
+    requires \typeof(value) <: \type(char *);
+    requires \valid((char *)value + (0 .. size - 1));
  */
 static int acslinux_setprocattr(const char *name, void *value, size_t size)
 {
@@ -1836,7 +1867,7 @@ static int acslinux_settime(const struct timespec64 *ts, const struct timezone *
  *	@shp contains the shared memory structure to be modified.
  *	Return 0 if operation was successful and permission is granted.
  */
-/*@ requires valid_kern_ipc_perm(shp);
+/*@ SECLABEL_ALLOC(valid_kern_ipc_perm,shp,security);
  */
 static int acslinux_shm_alloc_security(struct kern_ipc_perm *shp)
 {
@@ -1865,7 +1896,7 @@ static int acslinux_shm_associate(struct kern_ipc_perm *shp, int shmflg)
  *	Deallocate the security struct for this memory segment.
  *	@shp contains the shared memory structure to be modified.
  */
-/*@ requires valid_kern_ipc_perm(shp);
+/*@ SECLABEL_FREE(valid_kern_ipc_perm,shp,security);
  */
 static void acslinux_shm_free_security(struct kern_ipc_perm *shp)
 {
@@ -1899,7 +1930,8 @@ static int acslinux_shm_shmat(struct kern_ipc_perm *shp, char __user *shmaddr,
  *	@cmd contains the operation to be performed.
  *	Return 0 if permission is granted.
  */
-/*@ requires valid_kern_ipc_perm(shp);
+/*@ requires shp == \null || valid_kern_ipc_perm(shp);
+    requires shp == \null && (cmd == IPC_INFO || cmd == SHM_INFO);
  */
 static int acslinux_shm_shmctl(struct kern_ipc_perm *shp, int cmd)
 {
@@ -1962,6 +1994,7 @@ static int acslinux_task_fix_setuid(struct cred *new, const struct cred *old,
  *	from interrupt context.)
  */
 /*@ requires valid_task_struct(task);
+    // FREE
  */
 static void acslinux_task_free(struct task_struct *task)
 {
@@ -2010,6 +2043,8 @@ static int acslinux_task_getscheduler(struct task_struct *p)
  *	In case of failure, @secid will be set to zero.
  */
 /*@ requires valid_task_struct(p);
+    requires \valid(secid);
+    assigns *secid;
  */
 static void acslinux_task_getsecid(struct task_struct *p, u32 *secid)
 {
@@ -2045,8 +2080,12 @@ static int acslinux_task_getsid(struct task_struct *p)
  *	Return 0 if permission is granted.
  */
 /*@ requires valid_task_struct(p);
-    requires valid_siginfo(info);
+    requires info == \null
+          || info == (struct siginfo *)1
+          || valid_siginfo(info);
     requires valid_cred(cred);
+    requires !(info == (struct siginfo *)1 || SI_FROMKERNEL(info)) ==>
+             valid_task_struct(current_task);
  */
 static int acslinux_task_kill(struct task_struct *p, struct siginfo *info,
 				int sig, const struct cred *cred)
@@ -2211,6 +2250,11 @@ static int acslinux_vm_enough_memory(struct mm_struct *mm, long pages)
  *	@rule contains the allocated rule
  */
 
+/*@ requires \typeof(lsmrule) <: \type(char *);
+    requires \valid((char *)lsmrule); // TODO: MAY BE NULL?
+    frees lsmrule;
+    ensures !\valid((char *)lsmrule);
+ */
 static void acslinux_audit_rule_free(void *lsmrule)
 {
 }
@@ -2227,6 +2271,10 @@ static void acslinux_audit_rule_free(void *lsmrule)
  *	-EINVAL in case of an invalid rule.
  */
 /*@ requires valid_str(rulestr);
+    requires \typeof(lsmrule) <: \type(char **);
+    requires \valid((char **)lsmrule);
+    requires *((char **)lsmrule) == \null;
+    ensures \result == 0 || \result == -EINVAL;
  */
 static int acslinux_audit_rule_init(u32 field, u32 op, char *rulestr,
 				void **lsmrule)
@@ -2242,6 +2290,7 @@ static int acslinux_audit_rule_init(u32 field, u32 op, char *rulestr,
  *	Return 1 in case of relation found, 0 otherwise.
  */
 /*@ requires valid_audit_krule(krule);
+    ensures \result == 0 || \result == 1;
  */
 static int acslinux_audit_rule_known(struct audit_krule *krule)
 {
@@ -2260,6 +2309,8 @@ static int acslinux_audit_rule_known(struct audit_krule *krule)
  *	Return 1 if secid matches the rule, 0 if it does not, -ERRNO on failure.
  */
 /*@ requires valid_audit_context(actx);
+    requires \typeof(lsmrule) <: \type(char *);
+    requires \valid((char *)lsmrule);
  */
 static int acslinux_audit_rule_match(u32 secid, u32 field, u32 op, void *lsmrule,
 				struct audit_context *actx)
@@ -2277,7 +2328,9 @@ static int acslinux_audit_rule_match(u32 secid, u32 field, u32 op, void *lsmrule
  *	into the kernel. The actual security module can implement their own
  *	rules to check the specific cmd they need.
  */
-
+/*@ requires \valid(attr);
+    // TODO: size of union
+ */
 static int acslinux_bpf(int cmd, union bpf_attr *attr,
 				 unsigned int size)
 {
@@ -2300,7 +2353,7 @@ static int acslinux_bpf_map(struct bpf_map *map, fmode_t fmode)
 /** @bpf_map_alloc_security:
  *	Initialize the security field inside bpf map.
  */
-/*@ requires valid_bpf_map(map);
+/*@ SECLABEL_ALLOC(valid_bpf_map,map,security);
  */
 static int acslinux_bpf_map_alloc_security(struct bpf_map *map)
 {
@@ -2311,7 +2364,7 @@ static int acslinux_bpf_map_alloc_security(struct bpf_map *map)
 /** @bpf_map_free_security:
  *	Clean up the security information stored inside bpf map.
  */
-/*@ requires valid_bpf_map(map);
+/*@ SECLABEL_FREE(valid_bpf_map,map,security);
  */
 static void acslinux_bpf_map_free_security(struct bpf_map *map)
 {
@@ -2333,7 +2386,7 @@ static int acslinux_bpf_prog(struct bpf_prog *prog)
 /** @bpf_prog_alloc_security:
  *	Initialize the security field inside bpf program.
  */
-/*@ requires valid_bpf_prog_aux(aux);
+/*@ SECLABEL_ALLOC(valid_bpf_prog_aux,aux,security);
  */
 static int acslinux_bpf_prog_alloc_security(struct bpf_prog_aux *aux)
 {
@@ -2344,7 +2397,7 @@ static int acslinux_bpf_prog_alloc_security(struct bpf_prog_aux *aux)
 /** @bpf_prog_free_security:
  *	Clean up the security information stored inside bpf prog.
  */
-/*@ requires valid_bpf_prog_aux(aux);
+/*@ SECLABEL_FREE(valid_bpf_prog_aux,aux,security);
  */
 static void acslinux_bpf_prog_free_security(struct bpf_prog_aux *aux)
 {
@@ -2362,8 +2415,8 @@ static void acslinux_bpf_prog_free_security(struct bpf_prog_aux *aux)
  *	@flags is the allocation flags
  *	Return 0 if permission is granted, -ve error otherwise.
  */
-/*@ requires valid_key(key);
-    requires valid_cred(cred);
+/*@ requires valid_cred(cred);
+    SECLABEL_ALLOC(valid_key,key,security);
  */
 static int acslinux_key_alloc(struct key *key, const struct cred *cred,
 				unsigned long flags)
@@ -2378,6 +2431,7 @@ static int acslinux_key_alloc(struct key *key, const struct cred *cred,
  *	No return value.
  */
 /*@ requires valid_key(key);
+    //FREE
  */
 static void acslinux_key_free(struct key *key)
 {
@@ -2397,6 +2451,10 @@ static void acslinux_key_free(struct key *key)
  *	May also return 0 (and a NULL buffer pointer) if there is no label.
  */
 /*@ requires valid_key(key);
+    allocates *_buffer;
+    assigns *_buffer;
+    ensures \result > 0 ==> valid_str(*_buffer) && strlen(*_buffer) == \result;
+    ensures \result == 0 ==> *_buffer == \null;
  */
 static int acslinux_key_getsecurity(struct key *key, char **_buffer)
 {
@@ -2431,7 +2489,8 @@ static int acslinux_key_permission(key_ref_t key_ref, const struct cred *cred,
  *	@sec pointer to a security structure pointer.
  *	Returns 0 on success, non-zero on failure
  */
-
+/*@ RAW_SECLABEL_ALLOC(sec);
+ */
 static int acslinux_ib_alloc_security(void **sec)
 {
 	return 0;
@@ -2445,6 +2504,8 @@ static int acslinux_ib_alloc_security(void **sec)
  *	@sec pointer to a security structure.
  */
 /*@ requires valid_str(dev_name);
+    requires \typeof(sec) <: \type(seclabel_t *);
+    requires valid_seclabel((seclabel_t *)sec);
  */
 static int acslinux_ib_endport_manage_subnet(void *sec, const char *dev_name,
 					u8 port_num)
@@ -2458,6 +2519,8 @@ static int acslinux_ib_endport_manage_subnet(void *sec, const char *dev_name,
  *	@sec contains the security structure to be freed.
  */
 
+/*@ RAW_SECLABEL_FREE(sec);
+ */
 static void acslinux_ib_free_security(void *sec)
 {
 }
@@ -2470,6 +2533,9 @@ static void acslinux_ib_free_security(void *sec)
  *	@sec pointer to a security structure.
  */
 
+/*@ requires \typeof(sec) <: \type(seclabel_t *);
+    requires valid_seclabel((seclabel_t *)sec);
+ */
 static int acslinux_ib_pkey_access(void *sec, u64 subnet_prefix, u16 pkey)
 {
 	return 0;
@@ -2561,6 +2627,7 @@ static int acslinux_sctp_assoc_request(struct sctp_endpoint *ep,
  */
 /*@ requires valid_sock(sk);
     requires valid_sockaddr(address);
+    // TODO: handle addrlen
  */
 static int acslinux_sctp_bind_connect(struct sock *sk, int optname,
 				 struct sockaddr *address, int addrlen)
@@ -2614,7 +2681,7 @@ static int acslinux_secmark_relabel_packet(u32 secid)
  *	Allocate and attach a security structure to the sk->sk_security field,
  *	which is used to copy security attributes between local stream sockets.
  */
-/*@ requires valid_sock(sk);
+/*@ SECLABEL_ALLOC(valid_sock,sk,sk_security);
  */
 static int acslinux_sk_alloc_security(struct sock *sk, int family, gfp_t priority)
 {
@@ -2636,7 +2703,7 @@ static void acslinux_sk_clone_security(const struct sock *sk, struct sock *newsk
 /** @sk_free_security:
  *	Deallocate security structure.
  */
-/*@ requires valid_sock(sk);
+/*@ SECLABEL_FREE(valid_sock,sk,sk_security);
  */
 static void acslinux_sk_free_security(struct sock *sk)
 {
@@ -2648,6 +2715,8 @@ static void acslinux_sk_free_security(struct sock *sk)
  *	of network authorizations.
  */
 /*@ requires valid_sock(sk);
+    requires \valid(secid);
+    assigns *secid;
  */
 static void acslinux_sk_getsecid(struct sock *sk, u32 *secid)
 {
@@ -2693,6 +2762,7 @@ static int acslinux_socket_accept(struct socket *sock, struct socket *newsock)
  */
 /*@ requires valid_socket(sock);
     requires valid_sockaddr(address);
+    //TODO: addrlen handling
  */
 static int acslinux_socket_bind(struct socket *sock, struct sockaddr *address,
 				int addrlen)
@@ -2711,6 +2781,7 @@ static int acslinux_socket_bind(struct socket *sock, struct sockaddr *address,
  */
 /*@ requires valid_socket(sock);
     requires valid_sockaddr(address);
+    //TODO: addrlen handling
  */
 static int acslinux_socket_connect(struct socket *sock, struct sockaddr *address,
 				int addrlen)
@@ -2762,6 +2833,7 @@ static int acslinux_socket_getpeername(struct socket *sock)
  */
 /*@ requires valid_socket(sock);
     requires valid_sk_buff(skb);
+    requires \valid(secid);
  */
 static int acslinux_socket_getpeersec_dgram(struct socket *sock,
 					struct sk_buff *skb, u32 *secid)
@@ -2785,7 +2857,8 @@ static int acslinux_socket_getpeersec_dgram(struct socket *sock,
  *	values.
  */
 /*@ requires valid_socket(sock);
-    requires valid_str(optval);
+    requires \valid(optlen);
+    requires \valid(optval);
  */
 static int acslinux_socket_getpeersec_stream(struct socket *sock,
 					char __user *optval,
@@ -2855,6 +2928,7 @@ static int acslinux_socket_listen(struct socket *sock, int backlog)
  *	@kern set to 1 if a kernel socket.
  */
 /*@ requires valid_socket(sock);
+    // requires valid_inode(sock->inode); FIXME:
  */
 static int acslinux_socket_post_create(struct socket *sock, int family, int type,
 					int protocol, int kern)
@@ -2873,6 +2947,7 @@ static int acslinux_socket_post_create(struct socket *sock, int family, int type
  */
 /*@ requires valid_socket(sock);
     requires valid_msghdr(msg);
+    requires size == msg->msg_iter.count;
  */
 static int acslinux_socket_recvmsg(struct socket *sock, struct msghdr *msg,
 				int size, int flags)
@@ -2890,6 +2965,7 @@ static int acslinux_socket_recvmsg(struct socket *sock, struct msghdr *msg,
  */
 /*@ requires valid_socket(sock);
     requires valid_msghdr(msg);
+    requires size == msg->msg_iter.count;
  */
 static int acslinux_socket_sendmsg(struct socket *sock, struct msghdr *msg,
 				int size)
@@ -2940,12 +3016,12 @@ static int acslinux_socket_shutdown(struct socket *sock, int how)
  */
 /*@ requires valid_sock(sk);
     requires valid_sk_buff(skb);
+    // TODO: spinlocks possible
  */
 static int acslinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
 {
 	return 0;
 }
-
 
 /** @tun_dev_alloc_security:
  *	This hook allows a module to allocate a security structure for a TUN
@@ -2953,7 +3029,8 @@ static int acslinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
  *	@security pointer to a security structure pointer.
  *	Returns a zero on success, negative values on failure.
  */
-
+/*@ RAW_SECLABEL_ALLOC(security);
+ */
 static int acslinux_tun_dev_alloc_security(void **security)
 {
 	return 0;
@@ -2967,6 +3044,7 @@ static int acslinux_tun_dev_alloc_security(void **security)
  *	@security pointer to the TUN device's security structure.
  */
 /*@ requires valid_sock(sk);
+    UPDATE_SECLABEL(security);
  */
 static int acslinux_tun_dev_attach(struct sock *sk, void *security)
 {
@@ -2978,7 +3056,9 @@ static int acslinux_tun_dev_attach(struct sock *sk, void *security)
  *	Check permissions prior to attaching to a TUN device queue.
  *	@security pointer to the TUN device's security structure.
  */
-
+/*@ requires \typeof(security) <: \type(seclabel_t *);
+    requires valid_seclabel((seclabel_t *)security);
+ */
 static int acslinux_tun_dev_attach_queue(void *security)
 {
 	return 0;
@@ -2994,13 +3074,13 @@ static int acslinux_tun_dev_create(void)
 	return 0;
 }
 
-
 /** @tun_dev_free_security:
  *	This hook allows a module to free the security structure for a TUN
  *	device.
  *	@security pointer to the TUN device's security structure
  */
-
+/*@ RAW_SECLABEL_FREE(security);
+ */
 static void acslinux_tun_dev_free_security(void *security)
 {
 }
@@ -3011,7 +3091,8 @@ static void acslinux_tun_dev_free_security(void *security)
  *	associated with the TUN device's security structure.
  *	@security pointer to the TUN devices's security structure.
  */
-
+/*@ UPDATE_SECLABEL(security);
+ */
 static int acslinux_tun_dev_open(void *security)
 {
 	return 0;
@@ -3064,6 +3145,8 @@ static int acslinux_unix_stream_connect(struct sock *sock, struct sock *other,
  *	Return 0 if ckall is zero or all xfrms used have the same secid.
  */
 /*@ requires valid_sk_buff(skb);
+    requires \valid(secid);
+    assigns *secid;
  */
 static int acslinux_xfrm_decode_session(struct sk_buff *skb, u32 *secid, int ckall)
 {
@@ -3082,6 +3165,10 @@ static int acslinux_xfrm_decode_session(struct sk_buff *skb, u32 *secid, int cka
  *	@gfp is to specify the context for the allocation
  */
 /*@ requires valid_xfrm_user_sec_ctx(sec_ctx);
+    requires \valid(ctxp);
+    allocates *ctxp;
+    assigns *ctxp;
+    ensures valid_xfrm_sec_ctx(*ctxp);
  */
 static int acslinux_xfrm_policy_alloc_security(struct xfrm_sec_ctx **ctxp,
 					  struct xfrm_user_sec_ctx *sec_ctx,
@@ -3099,6 +3186,10 @@ static int acslinux_xfrm_policy_alloc_security(struct xfrm_sec_ctx **ctxp,
  *	Return 0 if operation was successful (memory to allocate).
  */
 /*@ requires valid_xfrm_sec_ctx(old_ctx);
+    requires \valid(new_ctx);
+    allocates *new_ctx;
+    assigns *new_ctx;
+    ensures valid_xfrm_sec_ctx(*new_ctx);
  */
 static int acslinux_xfrm_policy_clone_security(struct xfrm_sec_ctx *old_ctx,
 						struct xfrm_sec_ctx **new_ctx)
@@ -3124,6 +3215,7 @@ static int acslinux_xfrm_policy_delete_security(struct xfrm_sec_ctx *ctx)
  *	Deallocate xp->security.
  */
 /*@ requires valid_xfrm_sec_ctx(ctx);
+    frees ctx;
  */
 static void acslinux_xfrm_policy_free_security(struct xfrm_sec_ctx *ctx)
 {
@@ -3163,6 +3255,10 @@ static int acslinux_xfrm_policy_lookup(struct xfrm_sec_ctx *ctx, u32 fl_secid,
  */
 /*@ requires valid_xfrm_state(x);
     requires valid_xfrm_user_sec_ctx(sec_ctx);
+    requires x->security == \null;
+    allocates x->security;
+    assigns x->security;
+    ensures valid_xfrm_sec_ctx(x->security);
  */
 static int acslinux_xfrm_state_alloc(struct xfrm_state *x,
 				struct xfrm_user_sec_ctx *sec_ctx)
@@ -3210,6 +3306,7 @@ static int acslinux_xfrm_state_delete_security(struct xfrm_state *x)
  *	Deallocate x->security.
  */
 /*@ requires valid_xfrm_state(x);
+    frees x;
  */
 static void acslinux_xfrm_state_free_security(struct xfrm_state *x)
 {
